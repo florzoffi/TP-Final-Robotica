@@ -4,7 +4,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import numpy as np
 import cv2
-
+import os
 
 class ArucoDetector(Node):
     def __init__(self):
@@ -46,6 +46,12 @@ class ArucoDetector(Node):
             306.0343933105469
         ], dtype=np.float64)
 
+        self.output_path = "src/tpf/aruco_observations.csv"
+        self.csv_file = open(self.output_path, "w")
+        self.csv_file.write("time,tag_id,distance,bearing\n")
+        self.csv_file.flush()
+        self.get_logger().info(f"Guardando observaciones en {self.output_path}")
+
     def image_callback(self, msg):
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
@@ -71,8 +77,17 @@ class ArucoDetector(Node):
                 z = tvec[2]
 
                 distance = np.linalg.norm(tvec)
-
                 bearing = np.arctan2(x, z)
+
+                if distance < 0.2 or distance > 2.0:
+                    continue
+                
+                timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+
+                self.csv_file.write(
+                    f"{timestamp},{int(tag_id)},{distance:.6f},{bearing:.6f}\n"
+                )
+                self.csv_file.flush()
 
                 self.get_logger().info(
                     f"Tag {tag_id} | dist={distance:.2f}m | bearing={bearing:.2f}rad"
@@ -86,11 +101,16 @@ def main(args=None):
     rclpy.init(args=args)
 
     node = ArucoDetector()
-    rclpy.spin(node)
 
-    node.destroy_node()
-    rclpy.shutdown()
-    cv2.destroyAllWindows()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.csv_file.close()
+        node.destroy_node()
+        rclpy.shutdown()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

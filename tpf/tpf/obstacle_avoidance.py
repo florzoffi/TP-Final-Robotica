@@ -54,18 +54,16 @@ class ObstacleAvoidance(Node):
 
     def scan_callback( self, msg ):
         n = len( msg.ranges )
-        if self.robot_type == 'tb4':
-            front_index = n // 4
-        else:
-            front_index = 0
-
+        front_index = int( n * self.front_index_offset / 360 )
         valid_ranges = []
+
         for i in range( front_index - self.window, front_index + self.window + 1 ):
             index = i % n
             r = msg.ranges[index]
-            if self.use_intensity_filter and len( msg.intensities ) > index:
-                if msg.intensities[index] == 0.0:
+            if self.use_intensity_filter:
+                if len( msg.intensities ) <= index or msg.intensities[index] == 0.0:
                     continue
+
             if not math.isinf( r ) and not math.isnan( r ):
                 valid_ranges.append( r )
 
@@ -102,7 +100,7 @@ class ObstacleAvoidance(Node):
                 self.rotating = False
                 self.start_yaw = None
                 cmd.angular.z = 0.0
-            self.cmd_pub.publish(cmd)
+            self.cmd_pub.publish( cmd )
             return
         
         if self.obstacle_detected:

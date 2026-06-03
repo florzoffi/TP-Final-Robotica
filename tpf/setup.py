@@ -22,6 +22,8 @@ setup(
         'console_scripts': [
             'obstacle_avoidance = tpf.obstacle_avoidance:main',
             'obstacle_avoidance_tb4 = tpf.obstacle_avoidance_tb4:main',
+            'aruco_detector = tpf.aruco_detector:main',
+            'odom_logger = tpf.odom_logger:main',
         ],
     },
 )
