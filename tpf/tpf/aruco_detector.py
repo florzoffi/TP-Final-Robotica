@@ -76,7 +76,7 @@ class ArucoDetector(Node):
                 y = tvec[1]
                 z = tvec[2]
 
-                distance = np.linalg.norm(tvec)
+                distance = np.sqrt(x**2 + z**2)
                 bearing = np.arctan2(x, z)
 
                 if distance < 0.2 or distance > 2.0:
@@ -109,7 +109,8 @@ def main(args=None):
     finally:
         node.csv_file.close()
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
         cv2.destroyAllWindows()
 
 
