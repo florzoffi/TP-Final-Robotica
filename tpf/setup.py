@@ -1,4 +1,5 @@
 from setuptools import find_packages, setup
+from glob import glob
 
 package_name = 'tpf'
 
@@ -10,6 +11,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/tpf/launch', glob('launch/*.launch.py')),
+        ('share/tpf/rviz', glob('rviz/*.rviz')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -21,9 +24,13 @@ setup(
     entry_points={
         'console_scripts': [
             'obstacle_avoidance = tpf.obstacle_avoidance:main',
-            'obstacle_avoidance_tb4 = tpf.obstacle_avoidance_tb4:main',
             'aruco_detector = tpf.aruco_detector:main',
             'odom_logger = tpf.odom_logger:main',
+            'analyze_logs = tpf.analyze_logs:main',
+            'graph_slam = tpf.graph_slam:main',
+            'scan_logger = tpf.scan_logger:main',
+            'corrected_map_node = tpf.corrected_map_node:main',
+            'landmarks_publisher = tpf.landmarks_publisher:main',
         ],
     },
 )
