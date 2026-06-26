@@ -25,7 +25,7 @@ MAX_RANGE = 2.0
 
 MIN_OCC_HITS = 4
 MIN_FREE_HITS = 2
-LIDAR_ANGLE_OFFSET = np.pi / 2   # probá: 0, np.pi/2, -np.pi/2, np.pi
+LIDAR_ANGLE_OFFSET = np.pi / 2  
 
 POSES_CSV = "src/tpf/poses_optimized_keyframes.csv"
 
@@ -153,6 +153,8 @@ class CorrectedMapNode(Node):
                 continue
             if r < scan.range_min or r > range_max:
                 continue
+            if k < len(scan.intensities) and scan.intensities[k] == 0.0:
+                continue
 
             angle = theta + LIDAR_ANGLE_OFFSET + scan.angle_min + k * scan.angle_increment
 
@@ -200,23 +202,23 @@ class CorrectedMapNode(Node):
         self.path_msg.header.stamp = header.stamp
         self.path_msg.poses.append(msg)
         self.path_pub.publish(self.path_msg)
-        tf = TransformStamped()
-        tf.header.stamp = header.stamp
-        tf.header.frame_id = "map"
-        tf.child_frame_id = "rplidar_link"
-        
-        tf.transform.translation.x = float(x)
-        tf.transform.translation.y = float(y)
-        tf.transform.translation.z = 0.0
-        
-        qx_l, qy_l, qz_l, qw_l = yaw_to_quat(theta + LIDAR_ANGLE_OFFSET)
-
-        tf.transform.rotation.x = qx_l
-        tf.transform.rotation.y = qy_l
-        tf.transform.rotation.z = qz_l
-        tf.transform.rotation.w = qw_l
-        
-        self.tf_broadcaster.sendTransform(tf)
+        #tf = TransformStamped()
+        #tf.header.stamp = header.stamp
+        #tf.header.frame_id = "map"
+        #tf.child_frame_id = "rplidar_link"
+        #
+        #tf.transform.translation.x = float(x)
+        #tf.transform.translation.y = float(y)
+        #tf.transform.translation.z = 0.0
+        #
+        #qx_l, qy_l, qz_l, qw_l = yaw_to_quat(theta + LIDAR_ANGLE_OFFSET)
+#
+        #tf.transform.rotation.x = qx_l
+        #tf.transform.rotation.y = qy_l
+        #tf.transform.rotation.z = qz_l
+        #tf.transform.rotation.w = qw_l
+        #
+        #self.tf_broadcaster.sendTransform(tf)
 
     def publish_map(self, header):
         free_mask = self.free_count >= MIN_FREE_HITS

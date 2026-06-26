@@ -77,9 +77,9 @@ class ArucoDetector(Node):
                 z = tvec[2]
 
                 distance = np.sqrt(x**2 + z**2)
-                bearing = np.arctan2(x, z)
+                bearing = -np.arctan2(x, z)
 
-                if distance < 0.2 or distance > 2.0:
+                if distance < 0.2 or distance > 1.5:
                     continue
                 
                 timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
