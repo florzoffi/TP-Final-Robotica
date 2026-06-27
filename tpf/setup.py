@@ -13,6 +13,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/tpf/launch', glob('launch/*.launch.py')),
         ('share/tpf/rviz', glob('rviz/*.rviz')),
+        ('share/tpf/maps', glob('maps/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -31,6 +32,10 @@ setup(
             'scan_logger = tpf.scan_logger:main',
             'corrected_map_node = tpf.corrected_map_node:main',
             'landmarks_publisher = tpf.landmarks_publisher:main',
+            'particle_localizer = tpf.particle_localizer:main',
+            'path_planner = tpf.path_planner:main',
+            'path_follower = tpf.path_follower:main',
+            'navigation_manager = tpf.navigation_manager:main',
         ],
     },
 )
