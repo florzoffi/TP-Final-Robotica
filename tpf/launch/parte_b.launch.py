@@ -166,7 +166,7 @@ def generate_launch_description():
         executable="path_follower",
         name = "path_follower",
         output = "screen",
-        parameters=[{"use_sim_tim": True}],
+        parameters=[{"use_sim_time": True}],
     )
     
     navigation_manager = Node(
@@ -174,7 +174,7 @@ def generate_launch_description():
         executable="navigation_manager",
         name = "navigation_manager",
         output = "screen",
-        parameters=[{"use_sim_tim": True}],
+        parameters=[{"use_sim_time": True}],
     )
         
     return LaunchDescription([
