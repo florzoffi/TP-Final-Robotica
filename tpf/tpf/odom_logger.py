@@ -15,7 +15,7 @@ class OdomLogger(Node):
     def __init__(self):
         super().__init__("odom_logger")
 
-        self.output_path = "src/tpf/odom.csv"
+        self.output_path = "src/TP-Final-Robotica/tpf/odom.csv"
         self.csv_file = open(self.output_path, "w")
         self.csv_file.write("time,x,y,theta\n")
         self.csv_file.flush()

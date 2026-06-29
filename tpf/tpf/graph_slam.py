@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
 
 
-ODOM_CSV = "src/tpf/odom.csv"
-ARUCO_CSV = "src/tpf/aruco_observations.csv"
+ODOM_CSV = "src/TP-Final-Robotica/tpf/odom.csv"
+ARUCO_CSV = "src/TP-Final-Robotica/tpf/aruco_observations.csv"
 
 START_POSE = 0
 MAX_POSES = None
@@ -17,12 +17,16 @@ OBS_STRIDE = 1
 W_PRIOR0_XY = 100.0
 W_PRIOR0_TH = 100.0
 
-W_ODOM_XY = 60.0
-W_ODOM_TH = 30.0
+W_REG_XY = 1.0
+W_REG_TH = 0.5
 
-W_ARUCO_DIST = 5.0
-W_ARUCO_BEARING = 2.0
-TAGS_TO_EXCLUDE = [41]
+W_ODOM_XY = 80.0
+W_ODOM_TH = 40.0
+
+W_ARUCO_DIST = 2.0
+W_ARUCO_BEARING = 1.0
+TAGS_TO_EXCLUDE = []
+
 
 def normalize_angle(a):
     return (a + np.pi) % (2 * np.pi) - np.pi
@@ -50,6 +54,12 @@ def residuals(state, n_poses, tag_to_idx, odom_factors, landmark_factors, poses_
     res.append((poses[0, 0] - poses_prior[0, 0]) * W_PRIOR0_XY)
     res.append((poses[0, 1] - poses_prior[0, 1]) * W_PRIOR0_XY)
     res.append(normalize_angle(poses[0, 2] - poses_prior[0, 2]) * W_PRIOR0_TH)
+
+
+    for i in range(n_poses):
+        res.append((poses[i, 0] - poses_prior[i, 0]) * W_REG_XY)
+        res.append((poses[i, 1] - poses_prior[i, 1]) * W_REG_XY)
+        res.append(normalize_angle(poses[i, 2] - poses_prior[i, 2]) * W_REG_TH)
 
     for f in odom_factors:
         i = f["from"]
@@ -222,6 +232,10 @@ def main():
     print(f"Factores odometría: {len(odom_factors)}")
     print(f"Factores ArUco: {len(landmark_factors)}")
 
+    poses_with_obs = len(set(f["pose"] for f in landmark_factors))
+    print(f"Poses con observaciones ArUco: {poses_with_obs}")
+    print(f"Total de poses: {n_poses}")
+
     if n_landmarks == 0:
         print("No hay factores ArUco en este tramo.")
         return
@@ -348,6 +362,12 @@ def main():
     poses_opt = x_opt[: n_poses * 3].reshape((n_poses, 3))
     landmarks_opt = x_opt[n_poses * 3:].reshape((n_landmarks, 2))
 
+    corr = np.linalg.norm(poses_opt[:, :2] - poses0[:, :2], axis=1)
+
+    print("\n--- Corrección del Graph SLAM ---")
+    print(f"Corrección media: {np.mean(corr):.3f} m")
+    print(f"Corrección máxima: {np.max(corr):.3f} m")
+
     plt.figure(figsize=(10, 8))
 
     plt.plot(poses0[:, 0], poses0[:, 1], label="Trayectoria inicial", alpha=0.5)
@@ -373,7 +393,7 @@ def main():
 
     poses_df = pd.DataFrame(poses_opt, columns=["x", "y", "theta"])
     poses_df["time"] = odom_sub["time"].values
-    poses_df.to_csv("src/tpf/poses_optimized_keyframes.csv", index=False)
+    poses_df.to_csv("src/TP-Final-Robotica/tpf/poses_optimized_keyframes.csv", index=False)
 
     landmarks_rows = []
 
@@ -386,10 +406,10 @@ def main():
         })
 
     landmarks_df = pd.DataFrame(landmarks_rows)
-    landmarks_df.to_csv("src/tpf/landmarks_optimized_keyframes.csv", index=False)
+    landmarks_df.to_csv("src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes.csv", index=False)
 
-    print("Guardado src/tpf/poses_optimized_keyframes.csv")
-    print("Guardado src/tpf/landmarks_optimized_keyframes.csv")
+    print("Guardado src/TP-Final-Robotica/tpf/poses_optimized_keyframes.csv")
+    print("Guardado src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes.csv")
 
     print("Optimización terminada")
     print(f"Costo final: {result.cost:.3f}")

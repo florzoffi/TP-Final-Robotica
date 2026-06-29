@@ -10,7 +10,7 @@ class ScanLogger(Node):
     def __init__(self):
         super().__init__("scan_logger")
 
-        self.output_path = "src/tpf/scans.csv"
+        self.output_path = "src/TP-Final-Robotica/tpf/scans.csv"
         self.csv_file = open(self.output_path, "w", newline="")
         self.writer = csv.writer(self.csv_file)
 

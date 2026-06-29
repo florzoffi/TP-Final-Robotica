@@ -46,7 +46,7 @@ class ArucoDetector(Node):
             306.0343933105469
         ], dtype=np.float64)
 
-        self.output_path = "src/tpf/aruco_observations.csv"
+        self.output_path = "src/TP-Final-Robotica/tpf/aruco_observations.csv"
         self.csv_file = open(self.output_path, "w")
         self.csv_file.write("time,tag_id,distance,bearing\n")
         self.csv_file.flush()

@@ -1,10 +1,8 @@
 import numpy as np
 import pandas as pd
-
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
-
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import OccupancyGrid, Path
 from geometry_msgs.msg import PoseStamped
@@ -12,6 +10,8 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster
 import matplotlib.pyplot as plt
+import os
+from PIL import Image
 
 RESOLUTION = 0.05
 MAP_SIZE = 30.0
@@ -27,7 +27,7 @@ MIN_OCC_HITS = 4
 MIN_FREE_HITS = 2
 LIDAR_ANGLE_OFFSET = np.pi / 2  
 
-POSES_CSV = "src/tpf/poses_optimized_keyframes.csv"
+POSES_CSV = "src/TP-Final-Robotica/tpf/poses_optimized_keyframes.csv"
 
 
 def normalize_angle(a):
@@ -220,6 +220,37 @@ class CorrectedMapNode(Node):
         #
         #self.tf_broadcaster.sendTransform(tf)
 
+    def save_map_files(self, grid):
+
+        maps_dir = "src/TP-Final-Robotica/tpf/maps"
+        os.makedirs(maps_dir, exist_ok=True)
+
+        pgm = np.full((GRID_N, GRID_N), 205, dtype=np.uint8)
+        pgm[grid == 0] = 254       # libre
+        pgm[grid == 100] = 0       # ocupado
+        pgm[grid == -1] = 205      # desconocido
+
+        # Imagen en escala de grises
+        map_img = np.full((GRID_N, GRID_N), 205, dtype=np.uint8)
+        map_img[grid == 0] = 254       # libre
+        map_img[grid == 100] = 0       # ocupado
+        map_img[grid == -1] = 205      # desconocido
+
+        Image.fromarray(np.flipud(map_img)).save(f"{maps_dir}/map.png")
+        Image.fromarray(np.flipud(pgm)).save(f"{maps_dir}/map.pgm")
+
+        yaml_text = f"""image: map.pgm
+        mode: trinary
+        resolution: {RESOLUTION}
+        origin: [{-ORIGIN_X}, {-ORIGIN_Y}, 0.0]
+        negate: 0
+        occupied_thresh: 0.65
+        free_thresh: 0.25
+        """
+
+        with open(f"{maps_dir}/map.yaml", "w") as f:
+            f.write(yaml_text)
+
     def publish_map(self, header):
         free_mask = self.free_count >= MIN_FREE_HITS
         occ_mask = (self.occ_count >= MIN_OCC_HITS) & (self.occ_count > self.free_count * 0.25)
@@ -244,11 +275,7 @@ class CorrectedMapNode(Node):
         msg.data = grid.flatten().tolist()
 
         self.map_pub.publish(msg)
-        map_img = np.full((GRID_N, GRID_N), 127, dtype=np.uint8)
-        map_img[free_mask] = 255
-        map_img[occ_mask] = 0
-        
-        plt.imsave("src/tpf/final_map.png", map_img, cmap="gray")
+        self.save_map_files(grid)
 
 
 def main(args=None):
@@ -261,7 +288,8 @@ def main(args=None):
         pass
 
     node.destroy_node()
-    rclpy.shutdown()
+    if rclpy.ok():
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":
