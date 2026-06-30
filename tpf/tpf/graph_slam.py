@@ -63,10 +63,10 @@ def residuals(state, n_poses, tag_to_idx, odom_factors, landmark_factors, poses_
     res.append(normalize_angle(poses[0, 2] - poses_prior[0, 2]) * W_PRIOR0_TH)
 
 
-    for i in range(n_poses):
-        res.append((poses[i, 0] - poses_prior[i, 0]) * W_REG_XY)
-        res.append((poses[i, 1] - poses_prior[i, 1]) * W_REG_XY)
-        res.append(normalize_angle(poses[i, 2] - poses_prior[i, 2]) * W_REG_TH)
+    # for i in range(n_poses):
+    #     res.append((poses[i, 0] - poses_prior[i, 0]) * W_REG_XY)
+    #     res.append((poses[i, 1] - poses_prior[i, 1]) * W_REG_XY)
+    #     res.append(normalize_angle(poses[i, 2] - poses_prior[i, 2]) * W_REG_TH)
 
     for f in odom_factors:
         i = f["from"]
