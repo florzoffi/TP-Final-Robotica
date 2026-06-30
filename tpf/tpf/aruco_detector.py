@@ -19,11 +19,35 @@ class ArucoDetector(Node):
             10
         )
 
-        self.aruco_dict = cv2.aruco.getPredefinedDictionary(
-            cv2.aruco.DICT_4X4_50
+        self.image_pub = self.create_publisher(
+            Image,
+            "/aruco_image",
+            10
         )
+        self.declare_parameter("save_csv", True)
+        self.save_csv = self.get_parameter("save_csv").value
 
+        self.aruco_dict = cv2.aruco.getPredefinedDictionary(
+            cv2.aruco.DICT_4X4_100
+        )
         self.aruco_params = cv2.aruco.DetectorParameters()
+
+        #self.aruco_params.adaptiveThreshWinSizeMin = 3
+        #self.aruco_params.adaptiveThreshWinSizeMax = 45
+        #self.aruco_params.adaptiveThreshWinSizeStep = 4
+#
+        #self.aruco_params.minMarkerPerimeterRate = 0.03
+        #self.aruco_params.maxMarkerPerimeterRate = 4.0
+#
+        #self.aruco_params.polygonalApproxAccuracyRate = 0.03
+        #self.aruco_params.minCornerDistanceRate = 0.03
+        #self.aruco_params.minDistanceToBorder = 3
+#
+        #self.aruco_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+        #self.aruco_params.cornerRefinementWinSize = 5
+        #self.aruco_params.cornerRefinementMaxIterations = 30
+        #self.aruco_params.cornerRefinementMinAccuracy = 0.01
+
         self.detector = cv2.aruco.ArucoDetector(
             self.aruco_dict,
             self.aruco_params
@@ -47,15 +71,25 @@ class ArucoDetector(Node):
         ], dtype=np.float64)
 
         self.output_path = "src/TP-Final-Robotica/tpf/aruco_observations.csv"
-        self.csv_file = open(self.output_path, "w")
-        self.csv_file.write("time,tag_id,distance,bearing\n")
-        self.csv_file.flush()
-        self.get_logger().info(f"Guardando observaciones en {self.output_path}")
+
+        if self.save_csv:
+            self.csv_file = open(self.output_path, "w")
+            self.csv_file.write("time,tag_id,distance,bearing\n")
+            self.csv_file.flush()
+            self.get_logger().info(f"Guardando observaciones en {self.output_path}")
+        else:
+            self.csv_file = None
 
     def image_callback(self, msg):
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        #clahe = cv2.createCLAHE(
+        #    clipLimit=2.0,
+        #    tileGridSize=(8, 8)
+        #)
+        #gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
         corners, ids, rejected = self.detector.detectMarkers(gray)
 
@@ -68,6 +102,7 @@ class ArucoDetector(Node):
             )
             ids_flat = ids.flatten()
             cv2.aruco.drawDetectedMarkers(frame, corners, ids)
+            cv2.aruco.drawDetectedMarkers(frame, rejected, borderColor=(0, 0, 255))
 
             for i, tag_id in enumerate( ids_flat ):
                 tvec = tvecs[i][0]
@@ -84,15 +119,19 @@ class ArucoDetector(Node):
                 
                 timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
 
-                self.csv_file.write(
-                    f"{timestamp},{int(tag_id)},{distance:.6f},{bearing:.6f}\n"
-                )
-                self.csv_file.flush()
+                if self.save_csv:
+                    self.csv_file.write(
+                        f"{timestamp},{int(tag_id)},{distance:.6f},{bearing:.6f}\n"
+                    )
+                    self.csv_file.flush()
 
                 self.get_logger().info(
                     f"Tag {tag_id} | dist={distance:.2f}m | bearing={bearing:.2f}rad"
                 )
 
+        annotated_msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
+        annotated_msg.header = msg.header
+        self.image_pub.publish(annotated_msg)
         cv2.imshow("Aruco detections", frame)
         cv2.waitKey(1)
 
@@ -107,7 +146,8 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        node.csv_file.close()
+        if node.csv_file is not None:
+            node.csv_file.close()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
