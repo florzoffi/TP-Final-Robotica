@@ -44,7 +44,7 @@ class ConeDetector(Node):
         self.declare_parameter("val_min", 80)
         self.declare_parameter("min_contour_area_px", 80.0)
         self.declare_parameter("min_aspect_ratio", 1.2)
-        self.declare_parameter("max_aspect_ratio", 4.0)
+        self.declare_parameter("max_aspect_ratio", 10.0)
         self.declare_parameter("morph_kernel_size", 3)
         self.declare_parameter("apply_morph_open", False)
         self.declare_parameter("real_cone_height_m", 0.18)
@@ -250,6 +250,27 @@ class ConeDetector(Node):
         """
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+        if not contours:
+            self.get_logger().info(
+                "DIAG: ningún contorno en la mascara (mask completamente negra o filtro HSV demasiado estricto).",
+                throttle_duration_sec=2.0,
+            )
+            return None
+
+        # Log del contorno mas grande (independientemente de si pasa los filtros)
+        # para entender qué hay en la mascara antes de aplicar cualquier criterio.
+        areas = [cv2.contourArea(c) for c in contours]
+        biggest_idx = int(max(range(len(areas)), key=lambda i: areas[i]))
+        bx, by, bw, bh = cv2.boundingRect(contours[biggest_idx])
+        biggest_ar = (bh / bw) if bw > 0 else 0.0
+        self.get_logger().info(
+            f"DIAG: {len(contours)} contorno(s) | mayor: area={areas[biggest_idx]:.0f}px "
+            f"w={bw} h={bh} aspect={biggest_ar:.2f} "
+            f"(umbral area>={self.min_contour_area_px:.0f}, "
+            f"aspect [{self.min_aspect_ratio:.1f},{self.max_aspect_ratio:.1f}])",
+            throttle_duration_sec=1.0,
+        )
+
         best = None
         best_area = 0.0
 
@@ -264,11 +285,22 @@ class ConeDetector(Node):
 
             aspect_ratio = h / w
             if aspect_ratio < self.min_aspect_ratio or aspect_ratio > self.max_aspect_ratio:
+                self.get_logger().info(
+                    f"DIAG: contorno area={area:.0f} RECHAZADO por aspect_ratio={aspect_ratio:.2f} "
+                    f"(fuera de [{self.min_aspect_ratio:.1f},{self.max_aspect_ratio:.1f}])",
+                    throttle_duration_sec=1.0,
+                )
                 continue
 
             if area > best_area:
                 best_area = area
                 best = (x, y, w, h)
+
+        if best is None:
+            self.get_logger().info(
+                "DIAG: ningun contorno paso todos los filtros.",
+                throttle_duration_sec=1.0,
+            )
 
         return best
 
