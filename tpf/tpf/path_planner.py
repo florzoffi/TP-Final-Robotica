@@ -7,6 +7,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPo
 
 from nav_msgs.msg import OccupancyGrid, Path
 from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import LaserScan
 
 
 
@@ -17,7 +18,7 @@ class PathPlanner(Node):
 
         # Radio de seguridad alrededor de paredes onda para no acercarnos
         # El robot no es un punto, entonces inflamos obstáculos.
-        self.inflation_radius_m = 0.22
+        self.inflation_radius_m = 0.25
 
         self.map_received = False
         self.map_width = None
@@ -30,9 +31,23 @@ class PathPlanner(Node):
 
         self.current_pose = None
         self.goal_pose = None
-        
+
         self.last_plan_pose = None
-        self.replan_distance_threshold = 0.25
+        self.replan_distance_threshold = 0.30
+
+        # Radio de inflado para obstáculos dinámicos (más pequeño que el estático
+        # para no bloquear corredores estrechos).
+        self.dynamic_inflation_radius_m = 0.18
+
+        # Memoria de obstáculos dinámicos: (row, col) -> Time de la última
+        # detección. Un obstáculo detectado queda "recordado" durante
+        # DYNAMIC_DECAY_SEC aunque el LIDAR deje de verlo en el scan actual
+        # (p.ej. porque el robot giró). Sin esto, el planner replanifica
+        # contra un cluster de obstáculos distinto cada vez que ve un
+        # pedazo distinto del mismo cluster, y el camino elegido cambia de
+        # lado constantemente.
+        self.dynamic_obstacle_points = {}
+        self.DYNAMIC_DECAY_SEC = 10.0
 
         map_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -52,6 +67,13 @@ class PathPlanner(Node):
             PoseStamped,
             "/estimated_pose",
             self.pose_callback,
+            10,
+        )
+
+        self.scan_sub = self.create_subscription(
+            LaserScan,
+            "/scan",
+            self.scan_callback,
             10,
         )
 
@@ -86,6 +108,7 @@ class PathPlanner(Node):
         self.occupancy_data = list(msg.data)
 
         self.build_inflated_grid()
+        self.dynamic_obstacle_points = {}
 
         self.map_received = True
 
@@ -96,6 +119,9 @@ class PathPlanner(Node):
 
     def pose_callback(self, msg):
         self.current_pose = msg
+
+    def scan_callback(self, msg):
+        self.register_dynamic_obstacles(msg)
 
     def goal_callback(self, msg):
         self.goal_pose = msg
@@ -173,6 +199,22 @@ class PathPlanner(Node):
                     if dist <= self.inflation_radius_m:
                         self.inflated_grid[nr][nc] = 1
 
+    def find_nearest_free_cell(self, cell, max_radius=8):
+        """
+        Busca la celda libre más cercana a cell en un radio creciente.
+        Útil cuando la pose estimada cae en una zona inflada tras una rotación.
+        """
+        row, col = cell
+        for r in range(1, max_radius + 1):
+            for dr in range(-r, r + 1):
+                for dc in range(-r, r + 1):
+                    if abs(dr) != r and abs(dc) != r:
+                        continue
+                    candidate = (row + dr, col + dc)
+                    if self.is_free(candidate):
+                        return candidate
+        return None
+
     def is_free(self, cell):
         row, col = cell
 
@@ -202,6 +244,96 @@ class PathPlanner(Node):
     # ============================================================
     # PLANIFICACION
     # ============================================================
+
+    def yaw_from_quaternion(self, q):
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        return math.atan2(siny_cosp, cosy_cosp)
+
+    def register_dynamic_obstacles(self, scan):
+        """
+        Procesa un scan de LIDAR y actualiza la memoria de obstáculos
+        dinámicos (self.dynamic_obstacle_points) con marca de tiempo.
+
+        Solo se registran lecturas dentro de MAX_DYNAMIC_RANGE metros, y
+        solo si la celda no está ya ocupada en el mapa estático (para no
+        "redescubrir" paredes ya conocidas como si fueran dinámicas).
+        """
+        if self.current_pose is None or self.inflated_grid is None:
+            return
+
+        MAX_DYNAMIC_RANGE = 3.5  # m — casi el rango completo del LIDAR del TB3
+
+        robot_x   = self.current_pose.pose.position.x
+        robot_y   = self.current_pose.pose.position.y
+        robot_yaw = self.yaw_from_quaternion(self.current_pose.pose.orientation)
+
+        now = self.get_clock().now()
+
+        for i, r in enumerate(scan.ranges):
+            if math.isinf(r) or math.isnan(r) or r > MAX_DYNAMIC_RANGE:
+                continue
+
+            angle     = scan.angle_min + i * scan.angle_increment
+            world_ang = robot_yaw + angle
+            obs_x     = robot_x + r * math.cos(world_ang)
+            obs_y     = robot_y + r * math.sin(world_ang)
+
+            obs_cell = self.world_to_map(obs_x, obs_y)
+            if obs_cell is None:
+                continue
+
+            obs_row, obs_col = obs_cell
+
+            # Solo marcamos como dinámico si el centro NO estaba ya
+            # bloqueado por el mapa estático. Así evitamos "redescubrir"
+            # paredes ya conocidas como si fueran obstáculos dinámicos.
+            if self.inflated_grid[obs_row][obs_col] != 0:
+                continue
+
+            self.dynamic_obstacle_points[(obs_row, obs_col)] = now
+
+    def build_dynamic_grid(self):
+        """
+        Devuelve una copia del mapa inflado estático con los obstáculos
+        dinámicos "recordados" incorporados.
+
+        Usa self.dynamic_obstacle_points en vez del último scan únicamente:
+        cada punto detectado queda vivo durante DYNAMIC_DECAY_SEC, así que
+        un obstáculo no desaparece de la grilla solo porque el robot giró y
+        el LIDAR dejó de verlo por un instante. Esto evita que Theta* elija
+        un lado distinto del mismo cluster en cada replanificación.
+        """
+        # Copia superficial fila a fila (las filas son listas independientes).
+        dynamic = [row[:] for row in self.inflated_grid]
+
+        if not self.dynamic_obstacle_points:
+            return dynamic
+
+        now = self.get_clock().now()
+        inf_cells = int(math.ceil(self.dynamic_inflation_radius_m / self.map_resolution))
+
+        expired = []
+
+        for (obs_row, obs_col), last_seen in self.dynamic_obstacle_points.items():
+            age_sec = (now - last_seen).nanoseconds / 1e9
+
+            if age_sec > self.DYNAMIC_DECAY_SEC:
+                expired.append((obs_row, obs_col))
+                continue
+
+            for dr in range(-inf_cells, inf_cells + 1):
+                for dc in range(-inf_cells, inf_cells + 1):
+                    if math.sqrt(dr * dr + dc * dc) * self.map_resolution <= self.dynamic_inflation_radius_m:
+                        nr = obs_row + dr
+                        nc = obs_col + dc
+                        if 0 <= nr < self.map_height and 0 <= nc < self.map_width:
+                            dynamic[nr][nc] = 1
+
+        for key in expired:
+            del self.dynamic_obstacle_points[key]
+
+        return dynamic
 
     def plan_if_possible(self):
         if not self.map_received:
@@ -234,21 +366,40 @@ class PathPlanner(Node):
             return
 
         if not self.is_free(start_cell):
-            self.get_logger().warn("La celda inicial esta ocupada o demasiado cerca de una pared.")
-            return
+            start_cell = self.find_nearest_free_cell(start_cell)
+            if start_cell is None:
+                self.get_logger().warn("La celda inicial esta ocupada o demasiado cerca de una pared.")
+                return
+            self.get_logger().info("Celda inicial ocupada — usando celda libre cercana.")
 
         if not self.is_free(goal_cell):
             self.get_logger().warn("La celda objetivo esta ocupada o demasiado cerca de una pared.")
             return
 
+        # Planifica sobre mapa estático + obstáculos dinámicos del LIDAR.
+        static_grid = self.inflated_grid
+        self.inflated_grid = self.build_dynamic_grid()
+
         path_cells = self.theta_star(start_cell, goal_cell)
 
+        self.inflated_grid = static_grid  # restaurar siempre
+
         if path_cells is None:
-            self.get_logger().warn("No se encontro camino.")
-            return
+            # La grilla dinámica (mapa + LIDAR) no tiene camino — puede pasar
+            # si los obstáculos detectados rodean por completo al robot.
+            # Reintentamos solo con el mapa estático para no quedar
+            # atascados en un loop de "no encontro camino".
+            self.get_logger().warn(
+                "No se encontro camino con obstaculos dinamicos — reintentando solo con mapa estatico."
+            )
+            path_cells = self.theta_star(start_cell, goal_cell)
+
+            if path_cells is None:
+                self.get_logger().warn("No se encontro camino ni siquiera con el mapa estatico.")
+                return
 
         self.publish_path(path_cells)
-        
+
         self.last_plan_pose = (start_x, start_y)
 
         self.get_logger().info(f"Camino Theta* encontrado con {len(path_cells)} waypoints.")
@@ -265,6 +416,11 @@ class PathPlanner(Node):
         """
         Vecinos 8-conectados.
         Permite moverse horizontal, vertical y diagonal.
+
+        Para movimientos diagonales, exige que las dos celdas ortogonales
+        adyacentes tambien esten libres. Si no, el camino "corta la esquina"
+        pasando entre dos obstaculos que se tocan en diagonal, algo que el
+        robot (que tiene volumen) no puede hacer en la realidad.
         """
         row, col = cell
 
@@ -286,8 +442,14 @@ class PathPlanner(Node):
             nc = col + dc
             new_cell = (nr, nc)
 
-            if self.is_free(new_cell):
-                neighbors.append((new_cell, cost))
+            if not self.is_free(new_cell):
+                continue
+
+            if dr != 0 and dc != 0:
+                if not self.is_free((row + dr, col)) or not self.is_free((row, col + dc)):
+                    continue
+
+            neighbors.append((new_cell, cost))
 
         return neighbors
     
@@ -441,14 +603,25 @@ class PathPlanner(Node):
                 break
 
             error2 = 2 * error
+            moved_r = False
+            moved_c = False
 
             if error2 > -dc:
                 error -= dc
                 r += step_r
+                moved_r = True
 
             if error2 < dr:
                 error += dr
                 c += step_c
+                moved_c = True
+
+            # Si el paso de Bresenham avanzo en diagonal (r y c a la vez),
+            # exigimos que las dos celdas ortogonales tambien esten libres
+            # para no "cortar" la esquina entre dos obstaculos diagonales.
+            if moved_r and moved_c:
+                if not self.is_free((r - step_r, c)) or not self.is_free((r, c - step_c)):
+                    return False
 
         return True
 

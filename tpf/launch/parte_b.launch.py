@@ -172,11 +172,22 @@ def generate_launch_description():
     navigation_manager = Node(
         package="tpf",
         executable="navigation_manager",
-        name = "navigation_manager",
-        output = "screen",
+        name="navigation_manager",
+        output="screen",
         parameters=[{"use_sim_time": True}],
     )
-        
+
+    obstacle_avoidance = Node(
+        package="tpf",
+        executable="obstacle_avoidance",
+        name="obstacle_avoidance",
+        output="screen",
+        parameters=[
+            {"use_sim_time": True},
+            {"robot_type": "tb3"},
+        ],
+    )
+
     return LaunchDescription([
         gzserver,
         gzclient,
@@ -189,5 +200,6 @@ def generate_launch_description():
         path_planner,
         path_follower,
         navigation_manager,
+        obstacle_avoidance,
         rviz,
     ])
