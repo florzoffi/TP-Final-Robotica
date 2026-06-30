@@ -4,7 +4,7 @@ from enum import Enum
 import rclpy
 from rclpy.node import Node
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from nav_msgs.msg import Path
 
@@ -29,6 +29,7 @@ class NavState(Enum):
     WAITING_GOAL = "WAITING_GOAL"
     PLANNING = "PLANNING"
     FOLLOWING_PATH = "FOLLOWING_PATH"
+    AVOIDING_OBSTACLE = "AVOIDING_OBSTACLE"
     FINAL_ALIGNMENT = "FINAL_ALIGNMENT"
     GOAL_REACHED = "GOAL_REACHED"
 
@@ -51,6 +52,8 @@ class NavigationManager(Node):
 
         self.position_tolerance = 0.12
         self.final_angle_tolerance = 0.10
+
+        self.obstacle_active = False
 
         self.initialpose_sub = self.create_subscription(
             PoseWithCovarianceStamped,
@@ -80,9 +83,22 @@ class NavigationManager(Node):
             10,
         )
 
+        self.obstacle_sub = self.create_subscription(
+            Bool,
+            "/obstacle_detected",
+            self.obstacle_callback,
+            10,
+        )
+
         self.state_pub = self.create_publisher(
             String,
             "/navigation_state",
+            10,
+        )
+
+        self.goal_pub = self.create_publisher(
+            PoseStamped,
+            "/goal_pose",
             10,
         )
 
@@ -112,10 +128,41 @@ class NavigationManager(Node):
 
         self.get_logger().info("FSM: goal recibido.")
 
+        # Don't interrupt active obstacle avoidance; replan when it clears.
+        if self.state == NavState.AVOIDING_OBSTACLE:
+            return
+
         if self.has_estimated_pose:
             self.set_state(NavState.PLANNING)
         else:
             self.set_state(NavState.WAITING_INITIAL_POSE)
+
+    def obstacle_callback(self, msg):
+        self.obstacle_active = msg.data
+
+        if msg.data and self.state == NavState.FOLLOWING_PATH:
+            self.set_state(NavState.AVOIDING_OBSTACLE)
+            self.has_plan = False
+            self.current_path = []
+            # Replanificar AHORA: el LIDAR todavía ve el obstáculo, así que
+            # el planner lo incorporará a la grilla dinámica y generará un desvío.
+            if self.goal_pose is not None:
+                self.get_logger().info("FSM: obstáculo detectado — replaneando con LIDAR actual.")
+                self.goal_pub.publish(self.goal_pose)
+            self.publish_state()
+
+        elif not msg.data and self.state == NavState.AVOIDING_OBSTACLE:
+            # El período de bloqueo terminó. Si el planner ya generó un plan
+            # alternativo, lo seguimos directamente sin volver a PLANNING.
+            if self.has_plan:
+                self.get_logger().info("FSM: bloqueo terminado — siguiendo plan alternativo.")
+                self.set_state(NavState.FOLLOWING_PATH)
+            else:
+                self.get_logger().info("FSM: bloqueo terminado — sin plan, replaneando.")
+                self.set_state(NavState.PLANNING)
+                if self.goal_pose is not None:
+                    self.goal_pub.publish(self.goal_pose)
+            self.publish_state()
 
     def plan_callback(self, msg):
         self.current_path = msg.poses
@@ -145,6 +192,11 @@ class NavigationManager(Node):
 
         if not self.has_goal:
             self.set_state(NavState.WAITING_GOAL)
+            self.publish_state()
+            return
+
+        # Don't override obstacle avoidance via the periodic timer.
+        if self.state == NavState.AVOIDING_OBSTACLE:
             self.publish_state()
             return
 

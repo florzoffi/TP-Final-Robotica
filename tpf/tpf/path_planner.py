@@ -7,6 +7,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPo
 
 from nav_msgs.msg import OccupancyGrid, Path
 from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import LaserScan
 
 
 
@@ -30,9 +31,14 @@ class PathPlanner(Node):
 
         self.current_pose = None
         self.goal_pose = None
-        
+        self.latest_scan = None
+
         self.last_plan_pose = None
         self.replan_distance_threshold = 0.25
+
+        # Radio de inflado para obstáculos dinámicos (más pequeño que el estático
+        # para no bloquear corredores estrechos).
+        self.dynamic_inflation_radius_m = 0.15
 
         map_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -52,6 +58,13 @@ class PathPlanner(Node):
             PoseStamped,
             "/estimated_pose",
             self.pose_callback,
+            10,
+        )
+
+        self.scan_sub = self.create_subscription(
+            LaserScan,
+            "/scan",
+            self.scan_callback,
             10,
         )
 
@@ -96,6 +109,9 @@ class PathPlanner(Node):
 
     def pose_callback(self, msg):
         self.current_pose = msg
+
+    def scan_callback(self, msg):
+        self.latest_scan = msg
 
     def goal_callback(self, msg):
         self.goal_pose = msg
@@ -173,6 +189,22 @@ class PathPlanner(Node):
                     if dist <= self.inflation_radius_m:
                         self.inflated_grid[nr][nc] = 1
 
+    def find_nearest_free_cell(self, cell, max_radius=8):
+        """
+        Busca la celda libre más cercana a cell en un radio creciente.
+        Útil cuando la pose estimada cae en una zona inflada tras una rotación.
+        """
+        row, col = cell
+        for r in range(1, max_radius + 1):
+            for dr in range(-r, r + 1):
+                for dc in range(-r, r + 1):
+                    if abs(dr) != r and abs(dc) != r:
+                        continue
+                    candidate = (row + dr, col + dc)
+                    if self.is_free(candidate):
+                        return candidate
+        return None
+
     def is_free(self, cell):
         row, col = cell
 
@@ -202,6 +234,66 @@ class PathPlanner(Node):
     # ============================================================
     # PLANIFICACION
     # ============================================================
+
+    def yaw_from_quaternion(self, q):
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        return math.atan2(siny_cosp, cosy_cosp)
+
+    def build_dynamic_grid(self):
+        """
+        Devuelve una copia del mapa inflado estático con los obstáculos
+        dinámicos detectados por el LIDAR incorporados.
+
+        Solo se marcan lecturas dentro de MAX_DYNAMIC_RANGE metros para
+        no bloquear zonas lejanas irrelevantes. Las celdas ya ocupadas en
+        el mapa estático se ignoran para evitar inflar de más los bordes
+        de paredes en corredores estrechos.
+        """
+        MAX_DYNAMIC_RANGE = 2.0  # m — solo obstáculos cercanos
+
+        # Copia superficial fila a fila (las filas son listas independientes).
+        dynamic = [row[:] for row in self.inflated_grid]
+
+        if self.latest_scan is None or self.current_pose is None:
+            return dynamic
+
+        robot_x   = self.current_pose.pose.position.x
+        robot_y   = self.current_pose.pose.position.y
+        robot_yaw = self.yaw_from_quaternion(self.current_pose.pose.orientation)
+
+        scan = self.latest_scan
+        inf_cells = int(math.ceil(self.dynamic_inflation_radius_m / self.map_resolution))
+
+        for i, r in enumerate(scan.ranges):
+            if math.isinf(r) or math.isnan(r) or r > MAX_DYNAMIC_RANGE:
+                continue
+
+            angle     = scan.angle_min + i * scan.angle_increment
+            world_ang = robot_yaw + angle
+            obs_x     = robot_x + r * math.cos(world_ang)
+            obs_y     = robot_y + r * math.sin(world_ang)
+
+            obs_cell = self.world_to_map(obs_x, obs_y)
+            if obs_cell is None:
+                continue
+
+            obs_row, obs_col = obs_cell
+
+            # Solo marcamos como dinámico si el centro NO estaba ya
+            # bloqueado por el mapa estático. Así evitamos inflar paredes.
+            if self.inflated_grid[obs_row][obs_col] != 0:
+                continue
+
+            for dr in range(-inf_cells, inf_cells + 1):
+                for dc in range(-inf_cells, inf_cells + 1):
+                    if math.sqrt(dr * dr + dc * dc) * self.map_resolution <= self.dynamic_inflation_radius_m:
+                        nr = obs_row + dr
+                        nc = obs_col + dc
+                        if 0 <= nr < self.map_height and 0 <= nc < self.map_width:
+                            dynamic[nr][nc] = 1
+
+        return dynamic
 
     def plan_if_possible(self):
         if not self.map_received:
@@ -234,21 +326,30 @@ class PathPlanner(Node):
             return
 
         if not self.is_free(start_cell):
-            self.get_logger().warn("La celda inicial esta ocupada o demasiado cerca de una pared.")
-            return
+            start_cell = self.find_nearest_free_cell(start_cell)
+            if start_cell is None:
+                self.get_logger().warn("La celda inicial esta ocupada o demasiado cerca de una pared.")
+                return
+            self.get_logger().info("Celda inicial ocupada — usando celda libre cercana.")
 
         if not self.is_free(goal_cell):
             self.get_logger().warn("La celda objetivo esta ocupada o demasiado cerca de una pared.")
             return
 
+        # Planifica sobre mapa estático + obstáculos dinámicos del LIDAR.
+        static_grid = self.inflated_grid
+        self.inflated_grid = self.build_dynamic_grid()
+
         path_cells = self.theta_star(start_cell, goal_cell)
+
+        self.inflated_grid = static_grid  # restaurar siempre
 
         if path_cells is None:
             self.get_logger().warn("No se encontro camino.")
             return
 
         self.publish_path(path_cells)
-        
+
         self.last_plan_pose = (start_x, start_y)
 
         self.get_logger().info(f"Camino Theta* encontrado con {len(path_cells)} waypoints.")

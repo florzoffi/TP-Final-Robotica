@@ -5,6 +5,7 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Path
+from std_msgs.msg import String
 
 def yaw_from_quaternion(q):
     """
@@ -55,18 +56,26 @@ class PathFollower(Node):
         self.final_angle_tolerance = 0.08
         self.goal_reached = False
 
-        
+        self.nav_state = ""
+
         self.pose_sub = self.create_subscription(
             PoseStamped,
             "/estimated_pose",
             self.pose_callback,
             10,
         )
-        
+
         self.path_sub = self.create_subscription(
             Path,
             "/plan",
             self.path_callback,
+            10,
+        )
+
+        self.nav_state_sub = self.create_subscription(
+            String,
+            "/navigation_state",
+            self.nav_state_callback,
             10,
         )
 
@@ -82,6 +91,9 @@ class PathFollower(Node):
         )
 
         self.get_logger().info("Path follower iniciado con path hardcodeado.")
+
+    def nav_state_callback(self, msg):
+        self.nav_state = msg.data
 
     def pose_callback(self, msg):
         self.current_pose = msg
@@ -143,9 +155,13 @@ class PathFollower(Node):
         Loop de control que corre cada 0.1 s.
         Decide que velocidad publicar en /cmd_vel.
         """
+        if self.nav_state == "AVOIDING_OBSTACLE":
+            # Obstacle avoidance node owns cmd_vel right now.
+            return
+
         if self.current_pose is None:
             return
-        
+
         if len(self.path) == 0:
             return
 

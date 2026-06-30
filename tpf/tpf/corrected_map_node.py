@@ -239,14 +239,15 @@ class CorrectedMapNode(Node):
         Image.fromarray(np.flipud(map_img)).save(f"{maps_dir}/map.png")
         Image.fromarray(np.flipud(pgm)).save(f"{maps_dir}/map.pgm")
 
-        yaml_text = f"""image: map.pgm
-        mode: trinary
-        resolution: {RESOLUTION}
-        origin: [{-ORIGIN_X}, {-ORIGIN_Y}, 0.0]
-        negate: 0
-        occupied_thresh: 0.65
-        free_thresh: 0.25
-        """
+        yaml_text = (
+            f"image: map.pgm\n"
+            f"mode: trinary\n"
+            f"resolution: {RESOLUTION}\n"
+            f"origin: [{-ORIGIN_X}, {-ORIGIN_Y}, 0.0]\n"
+            f"negate: 0\n"
+            f"occupied_thresh: 0.65\n"
+            f"free_thresh: 0.25\n"
+        )
 
         with open(f"{maps_dir}/map.yaml", "w") as f:
             f.write(yaml_text)
