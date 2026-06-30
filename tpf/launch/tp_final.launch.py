@@ -13,6 +13,17 @@ def generate_launch_description():
         "tpf.rviz",
     )
 
+    aruco_detector = Node(
+        package="tpf",
+        executable="aruco_detector",
+        parameters=[
+            {
+                "use_sim_time": True,
+                "save_csv": False
+            }
+        ]
+    )
+
     corrected_map_node = Node(
         package="tpf",
         executable="corrected_map_node",
@@ -39,6 +50,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        aruco_detector,
         corrected_map_node,
         landmarks_publisher,
         rviz,

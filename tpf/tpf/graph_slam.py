@@ -23,9 +23,16 @@ W_REG_TH = 0.5
 W_ODOM_XY = 80.0
 W_ODOM_TH = 40.0
 
-W_ARUCO_DIST = 2.0
-W_ARUCO_BEARING = 1.0
-TAGS_TO_EXCLUDE = []
+W_ARUCO_DIST = 4
+W_ARUCO_BEARING = 2
+
+MIN_ARUCO_OBS_PER_FACTOR = 2
+
+MAX_FACTOR_DIST_STD = 0.08
+MAX_FACTOR_BEAR_STD = np.deg2rad(8)
+
+MAX_FACTOR_MEDIAN_DISTANCE = 1.5
+MIN_FACTOR_MEDIAN_DISTANCE = 0.2
 
 
 def normalize_angle(a):
@@ -188,16 +195,35 @@ def main():
     
     landmark_factors = []
 
+    rejected_factors = []
+
     for (pose_idx, tag_id), values in observations_by_key.items():
-        if tag_id in TAGS_TO_EXCLUDE:
-            continue
         values = np.array(values)
 
-        if len(values) < 6:
+        if len(values) < MIN_ARUCO_OBS_PER_FACTOR:
+            rejected_factors.append((pose_idx, tag_id, "pocas_obs", len(values)))
             continue
 
-        distance = np.median(values[:, 0])
-        bearing = np.median(values[:, 1])
+        distances = values[:, 0]
+        bearings = values[:, 1]
+
+        distance = np.median(distances)
+        bearing = np.median(bearings)
+
+        dist_std = np.std(distances)
+        bear_std = np.std([normalize_angle(b - bearing) for b in bearings])
+
+        if distance < MIN_FACTOR_MEDIAN_DISTANCE or distance > MAX_FACTOR_MEDIAN_DISTANCE:
+            rejected_factors.append((pose_idx, tag_id, "distancia_fuera_rango", distance))
+            continue
+
+        if dist_std > MAX_FACTOR_DIST_STD:
+            rejected_factors.append((pose_idx, tag_id, "dist_std_alta", dist_std))
+            continue
+
+        if bear_std > MAX_FACTOR_BEAR_STD:
+            rejected_factors.append((pose_idx, tag_id, "bearing_std_alta", np.degrees(bear_std)))
+            continue
 
         landmark_factors.append({
             "pose": pose_idx,
@@ -205,6 +231,8 @@ def main():
             "distance": distance,
             "bearing": bearing,
         })
+
+    print(f"Factores ArUco rechazados por calidad: {len(rejected_factors)}")
     odom_factors = []
 
     for i in range(len(odom_sub) - 1):
@@ -294,15 +322,53 @@ def main():
         verbose=2
     )
 
-    """
-    Pegar este bloque en graph_slam.py, justo despues de la linea:
-        result = least_squares(...)
-    y antes de armar los DataFrames de salida (poses_df / landmarks_df).
+    # --- Segunda pasada: eliminar mediciones ArUco malas por residuo ---
+    poses_tmp = result.x[: n_poses * 3].reshape((n_poses, 3))
+    landmarks_tmp = result.x[n_poses * 3:].reshape((len(tag_to_idx), 2))
 
-    Localiza en que tramo de la trayectoria se concentra el mayor error
-    residual despues de optimizar, separando por tipo de factor
-    (odometria vs ArUco), para encontrar la causa del "quiebre".
-    """
+    MAX_ARUCO_RES_DIST = 0.45
+    MAX_ARUCO_RES_BEAR = np.deg2rad(12)
+
+    clean_landmark_factors = []
+    bad_landmark_factors = []
+
+    for f in landmark_factors:
+        pose_idx = f["pose"]
+        tag_idx = tag_to_idx[f["tag"]]
+
+        px, py, ptheta = poses_tmp[pose_idx]
+        lx, ly = landmarks_tmp[tag_idx]
+
+        dx = lx - px
+        dy = ly - py
+
+        pred_dist = np.sqrt(dx**2 + dy**2)
+        pred_bearing = normalize_angle(np.arctan2(dy, dx) - ptheta)
+
+        err_dist = abs(pred_dist - f["distance"])
+        err_bear = abs(normalize_angle(pred_bearing - f["bearing"]))
+
+        if err_dist > MAX_ARUCO_RES_DIST or err_bear > MAX_ARUCO_RES_BEAR:
+            bad_landmark_factors.append((pose_idx, f["tag"], err_dist, np.degrees(err_bear)))
+            continue
+
+        clean_landmark_factors.append(f)
+
+    print(f"Factores ArUco antes del filtro residual: {len(landmark_factors)}")
+    print(f"Factores ArUco descartados por residuo: {len(bad_landmark_factors)}")
+    print(f"Factores ArUco después del filtro residual: {len(clean_landmark_factors)}")
+
+    landmark_factors = clean_landmark_factors
+
+    result = least_squares(
+        residuals,
+        result.x,
+        args=(n_poses, tag_to_idx, odom_factors, landmark_factors, poses0),
+        max_nfev=80,
+        loss="huber",
+        f_scale=0.5,
+        verbose=2
+    )
 
     # --- Diagnostico de residuos por factor ---
 
@@ -399,6 +465,21 @@ def main():
 
     for tag, idx in tag_to_idx.items():
         lx, ly = landmarks_opt[idx]
+        landmarks_rows.append({
+            "tag_id": tag,
+            "x": lx,
+            "y": ly
+        })
+
+    landmarks_rows = []
+
+    for tag, idx in tag_to_idx.items():
+        lx, ly = landmarks_opt[idx]
+
+        if not (-10 <= lx <= 5 and -5 <= ly <= 6):
+            print(f"Landmark {tag} descartado por posición rara: ({lx:.2f}, {ly:.2f})")
+            continue
+
         landmarks_rows.append({
             "tag_id": tag,
             "x": lx,
