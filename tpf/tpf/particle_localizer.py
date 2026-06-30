@@ -107,11 +107,21 @@ class ParticleLocalizer(Node):
             10,
         )
 
+        # El TB4 real (y los rosbags de Parte C) publican /tb4_0/odom con QoS
+        # BEST_EFFORT — un subscriber RELIABLE (el default al pasar un int)
+        # queda incompatible y nunca recibe nada. BEST_EFFORT acá es seguro
+        # también contra Gazebo (su /odom es RELIABLE, y BEST_EFFORT matchea
+        # con cualquier publisher).
+        odom_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+        )
+
         self.odom_sub = self.create_subscription(
             Odometry,
             "/odom", #mi nueva odometria que me llega del robot
             self.odom_callback,
-            10,
+            odom_qos,
         )
 
         self.scan_sub = self.create_subscription(
