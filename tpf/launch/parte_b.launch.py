@@ -29,7 +29,7 @@ def generate_launch_description():
     y_pose = LaunchConfiguration("y_pose", default="0.0")
 
     # Mundo sin obstáculos
-    # world = os.path.join(pkg_simulation, "worlds", "casa.world")
+    #world = os.path.join(pkg_simulation, "worlds", "casa.world")
 
     # Mundo de la casa con obstaculos
     world = os.path.join(
@@ -150,7 +150,10 @@ def generate_launch_description():
         executable="particle_localizer",
         name="particle_localizer",
         output="screen",
-        parameters=[{"use_sim_time": True}],
+        parameters=[
+            {"use_sim_time": True},
+            {"mode": "simulation"},
+        ],
     )
     
     path_planner = Node(
@@ -187,6 +190,26 @@ def generate_launch_description():
             {"robot_type": "tb3"},
         ],
     )
+    
+    landmark_csv = os.path.join(
+        pkg_tpf,
+        "config",
+        "virtual_landmarks.csv",
+    )
+
+    virtual_landmark_sensor = Node(
+        package="tpf",
+        executable="virtual_landmark_sensor",
+        name="virtual_landmark_sensor",
+        output="screen",
+        parameters=[
+            {"use_sim_time": True},
+            {"landmark_csv": landmark_csv},
+            {"max_range": 2.5},
+            {"fov": 2.1},
+            {"publish_rate": 5.0},
+        ],
+    )
 
     return LaunchDescription([
         gzserver,
@@ -197,6 +220,7 @@ def generate_launch_description():
         map_server,
         lifecycle_manager,
         particle_localizer,
+        virtual_landmark_sensor,
         path_planner,
         path_follower,
         navigation_manager,

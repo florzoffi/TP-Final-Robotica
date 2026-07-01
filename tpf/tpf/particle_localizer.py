@@ -50,11 +50,20 @@ class ParticleLocalizer(Node):
     def __init__(self):
         super().__init__("particle_localizer")
 
-        self.num_particles = 500
+        self.declare_parameter("mode", "simulation")  # sim o real
+        self.mode = self.get_parameter("mode").value
 
-        # Parametros de ruido
-        self.init_std_xy = 0.30
-        self.init_std_yaw = 0.8
+        if self.mode == "real":
+            self.num_particles = 500
+            self.lidar_angle_offset = math.pi / 2.0
+            self.init_std_xy = 0.30
+            self.init_std_yaw = 0.80
+        else:
+            self.num_particles = 300
+            self.lidar_angle_offset = 0.0
+            self.init_std_xy = 0.20
+            self.init_std_yaw = 0.15
+
         self.motion_std_distance = 0.01
         self.motion_std_yaw = 0.01
 
@@ -101,6 +110,31 @@ class ParticleLocalizer(Node):
         self.map_origin_y = None
         self.occupancy_data = None
         self.distance_field = None
+        
+        self.landmark_sigma_dist = 0.40
+        self.landmark_sigma_bearing = 0.30
+        self.landmark_scale = 0.15
+
+        self.landmarks = {
+            0: (-2.4, 2.4),
+            1: (-1.3, 2.4),
+            2: (0.3, 2.4),
+            3: (1.5, 2.2),
+            4: (2.4, 1.5),
+            5: (2.4, 0.3),
+            6: (2.4, -1.0),
+            7: (1.4, -2.4),
+            8: (0.3, -2.4),
+            9: (-1.0, -2.4),
+            10: (-2.4, -1.4),
+            11: (-2.4, -0.2),
+            12: (-1.4, 0.5),
+            13: (-0.2, 0.5),
+            14: (1.0, 0.8),
+            15: (1.8, -0.4),
+        }
+
+        self.latest_landmark_obs = []
 
         # /map viene de nav2_map_server y usa QoS transient local.
         map_qos = QoSProfile(
@@ -141,6 +175,13 @@ class ParticleLocalizer(Node):
             odom_qos,
         )
 
+        self.landmark_obs_sub = self.create_subscription(
+            PoseArray,
+            "/aruco_observations",
+            self.landmark_obs_callback,
+            10,
+        )
+        
         self.scan_sub = self.create_subscription(
             LaserScan,
             "/scan", #scan del lidar, lo usamos para corregir las particulas contra el mapa
@@ -169,31 +210,7 @@ class ParticleLocalizer(Node):
 
         self.get_logger().info("Particle localizer iniciado. Esperando /map e /initialpose...")
 
-    def _load_landmarks(self):
-        """Carga las posiciones de landmarks ArUco del CSV generado por Parte A."""
-        csv_path = "src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes.csv"
-        landmarks = {}
-        try:
-            with open(csv_path) as f:
-                next(f)  # saltar header
-                for line in f:
-                    parts = line.strip().split(",")
-                    if len(parts) < 3:
-                        continue
-                    tag_id = int(float(parts[0]))
-                    x = float(parts[1])
-                    y = float(parts[2])
-                    landmarks[tag_id] = (x, y)
-            self.get_logger().info(f"Landmarks cargados: {len(landmarks)} tags de {csv_path}")
-        except FileNotFoundError:
-            self.get_logger().warn(f"No se encontro {csv_path} — correccion de landmarks desactivada.")
-        return landmarks
-
     def landmark_obs_callback(self, msg):
-        """
-        Recibe las observaciones de ArUco en tiempo real desde aruco_detector.
-        Cada Pose codifica: position.x=tag_id, position.y=distance, position.z=bearing.
-        """
         self.latest_landmark_obs = [
             (int(p.position.x), p.position.y, p.position.z)
             for p in msg.poses
@@ -485,11 +502,7 @@ class ParticleLocalizer(Node):
                     continue
 
                 angle = scan.angle_min + i * scan.angle_increment
-                # El mapa fue construido por corrected_map_node.py aplicando
-                # LIDAR_ANGLE_OFFSET = pi/2. Sin este mismo offset aqui, los
-                # rayos se proyectan 90° en la direccion equivocada respecto al
-                # mapa → el filtro converge al yaw incorrecto.
-                global_angle = yaw + math.pi / 2 + angle
+                global_angle = yaw + self.lidar_angle_offset + angle
 
                 hit_x = x + r * math.cos(global_angle)
                 hit_y = y + r * math.sin(global_angle)
@@ -502,9 +515,7 @@ class ParticleLocalizer(Node):
                 log_w += -0.5 * (dist / self.sensor_sigma) ** 2
                 valid_beams += 1
 
-                if diag_first and len(sample_dists) < 5:
-                    sample_dists.append((round(hit_x, 2), round(hit_y, 2), round(dist, 3)))
-
+            
             if diag_first:
                 self.get_logger().info(
                     f"DIAG scan p0: particula=({x:.2f},{y:.2f},{math.degrees(yaw):.1f}deg) | "
@@ -519,6 +530,26 @@ class ParticleLocalizer(Node):
                 log_w = -100.0
             else:
                 log_w = log_w / valid_beams
+
+            if self.latest_landmark_obs:
+                lm_log = 0.0
+
+                for tag_id, obs_dist, obs_bearing in self.latest_landmark_obs:
+                    lx, ly = self.landmarks[tag_id]
+
+                    pred_dist = math.sqrt((lx - x) ** 2 + (ly - y) ** 2)
+                    pred_bearing = normalize_angle(math.atan2(ly - y, lx - x) - yaw)
+
+                    delta_dist = obs_dist - pred_dist
+                    delta_bearing = normalize_angle(obs_bearing - pred_bearing)
+
+                    lm_log += (
+                        -0.5 * (delta_dist / self.landmark_sigma_dist) ** 2
+                        -0.5 * (delta_bearing / self.landmark_sigma_bearing) ** 2
+                    )
+
+                log_w += self.landmark_scale * lm_log
+
 
             # Correccion de landmarks ArUco (peso mucho menor que el LIDAR).
             # Por cada observacion (tag_id, dist, bearing) comparamos la
