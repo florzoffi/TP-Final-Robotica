@@ -78,6 +78,11 @@ class ConeMissionManager(Node):
         self.waypoint_index = 0
         self.current_pose = None
 
+        self._pursuit_start_time = None
+        self._pursuit_timeout_sec = 12000.0
+        self._pursuit_cone_goal = None   # (x, y) del goal del cono actual
+        self._cone_arrival_radius_m = 0.5
+
         # Estado del generador automatico de waypoints
         self._raw_grid_cells = []   # candidatos del grid (sin filtrar)
         self._waypoints_ready = bool(self.waypoints)  # True si son manuales
@@ -146,6 +151,7 @@ class ConeMissionManager(Node):
         self._pending_row = None   # fila esperando saber si se encontro camino
         self._path_timeout_sec = 4.0
         self.create_timer(0.5, self._csv_timeout_check)
+        self.create_timer(2.0, self._check_pursuit_timeout)
 
         self.get_logger().info(f"Cone mission manager iniciado. CSV: {csv_path}")
 
@@ -194,12 +200,16 @@ class ConeMissionManager(Node):
         if self.mission_state == MissionState.PURSUING_CONE:
             self.get_logger().info("Cono alcanzado — mision completa.")
             self.mission_state = MissionState.DONE
+            self._pursuit_start_time = None
             return
 
         if self.mission_state == MissionState.EXPLORING:
             self.advance_exploration()
 
     def advance_exploration(self):
+        if self.mission_state == MissionState.DONE:
+            return
+
         self.waypoint_index += 1
 
         if self.waypoint_index >= len(self.waypoints):
@@ -211,6 +221,8 @@ class ConeMissionManager(Node):
         self.publish_waypoint_goal(self.waypoint_index)
 
     def publish_waypoint_goal(self, index):
+        if self.mission_state == MissionState.DONE:
+            return
         x, y, yaw = self.waypoints[index]
         self.publish_goal(x, y, yaw)
         self.get_logger().info(f"Exploracion: publicando waypoint {index} -> ({x:.2f},{y:.2f})")
@@ -249,6 +261,8 @@ class ConeMissionManager(Node):
         )
 
         self.mission_state = MissionState.PURSUING_CONE
+        self._pursuit_start_time = time.time()
+        self._pursuit_cone_goal = (target_x, target_y)
         self.publish_goal(target_x, target_y, yaw=None)
         self._log_detection(raw_x, raw_y, target_x, target_y)
 
@@ -327,6 +341,40 @@ class ConeMissionManager(Node):
     # ------------------------------------------------------------------
     # CSV logging
     # ------------------------------------------------------------------
+    def _check_pursuit_timeout(self):
+        if self.mission_state != MissionState.PURSUING_CONE:
+            return
+        if self._pursuit_start_time is None:
+            return
+        if time.time() - self._pursuit_start_time <= self._pursuit_timeout_sec:
+            return
+
+        # Si el robot ya esta cerca del cono (el path planner no puede alcanzar
+        # la celda exacta pero el robot fisicamente llego), considerarlo DONE.
+        dist_to_cone = float('inf')
+        if self.current_pose is not None and self._pursuit_cone_goal is not None:
+            rx = self.current_pose.pose.position.x
+            ry = self.current_pose.pose.position.y
+            cx, cy = self._pursuit_cone_goal
+            dist_to_cone = math.hypot(rx - cx, ry - cy)
+
+        if dist_to_cone <= self._cone_arrival_radius_m:
+            self.get_logger().info(
+                f"Timeout pero robot a {dist_to_cone:.2f}m del cono — considerando mision completa."
+            )
+            self.mission_state = MissionState.DONE
+            self._pursuit_start_time = None
+            self._pursuit_cone_goal = None
+        else:
+            self.get_logger().warn(
+                f"Timeout de {self._pursuit_timeout_sec:.0f}s persiguiendo cono "
+                f"(dist={dist_to_cone:.2f}m) — volviendo a explorar."
+            )
+            self.mission_state = MissionState.EXPLORING
+            self._pursuit_start_time = None
+            self._pursuit_cone_goal = None
+            self.advance_exploration()
+
     def _log_detection(self, cone_x, cone_y, goal_x, goal_y):
         ts = time.time()
         distance, bearing = 0.0, 0.0

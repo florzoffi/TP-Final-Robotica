@@ -1,1 +1,2 @@
 timestamp,cone_x,cone_y,distance_m,bearing_deg,goal_x,goal_y,path_found,path_length_m,num_waypoints
+1782949374.474,10.8203,14.6444,1.8215,29.25,11.0150,14.6350,True,1.7428,3
