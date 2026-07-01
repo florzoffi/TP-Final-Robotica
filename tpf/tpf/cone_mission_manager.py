@@ -64,21 +64,23 @@ class ConeMissionManager(Node):
 
         self.declare_parameter("exploration_waypoints", "")
         self.declare_parameter("snap_radius_cells", 8)
+        # Separacion entre waypoints del grid de exploracion automatico.
+        # 1.5 m es un buen equilibrio: cubre bien un laberinto tipico sin
+        # generar demasiados waypoints redundantes en areas abiertas.
+        self.declare_parameter("grid_spacing_m", 1.5)
 
         raw_waypoints = self.get_parameter("exploration_waypoints").value
         self.waypoints = parse_waypoints(raw_waypoints)
         self.snap_radius_cells = self.get_parameter("snap_radius_cells").value
-
-        if not self.waypoints:
-            self.get_logger().warn(
-                "exploration_waypoints vacio — no se publicara ningun waypoint de "
-                "exploracion hasta que se setee el parametro (tipicamente derivado "
-                "del mapa real construido en la Fase 1)."
-            )
+        self.grid_spacing_m = self.get_parameter("grid_spacing_m").value
 
         self.mission_state = MissionState.EXPLORING
         self.waypoint_index = 0
         self.current_pose = None
+
+        # Estado del generador automatico de waypoints
+        self._raw_grid_cells = []   # candidatos del grid (sin filtrar)
+        self._waypoints_ready = bool(self.waypoints)  # True si son manuales
 
         # ---------------- estado del mapa (replica path_planner.py) ----------------
         self.map_received = False
@@ -166,7 +168,10 @@ class ConeMissionManager(Node):
                 f"Mapa recibido: {self.map_width}x{self.map_height}, "
                 f"res={self.map_resolution:.3f}"
             )
-            self.start_exploration()
+            if self.waypoints:
+                self.start_exploration()   # waypoints manuales: arrancar ya
+            else:
+                self._generate_raw_grid()  # auto: generar candidatos, esperar pose
 
     def start_exploration(self):
         if not self.waypoints:
@@ -177,6 +182,12 @@ class ConeMissionManager(Node):
 
     # ------------------------------------------------------------------
     def nav_state_callback(self, msg):
+        # Cuando el FSM tiene pose inicial y espera un goal, es el momento
+        # de aplicar el filtro BFS (ya hay current_pose disponible).
+        if msg.data in ("LOCALIZED", "WAITING_GOAL") and not self._waypoints_ready:
+            self._apply_bfs_filter_and_start()
+            return
+
         if msg.data != "GOAL_REACHED":
             return
 
@@ -240,6 +251,78 @@ class ConeMissionManager(Node):
         self.mission_state = MissionState.PURSUING_CONE
         self.publish_goal(target_x, target_y, yaw=None)
         self._log_detection(raw_x, raw_y, target_x, target_y)
+
+    # ------------------------------------------------------------------
+    # Generador automatico de waypoints de exploracion
+    # ------------------------------------------------------------------
+    def _generate_raw_grid(self):
+        spacing = max(1, int(self.grid_spacing_m / self.map_resolution))
+        candidates = []
+        for r in range(0, self.map_height, spacing):
+            for c in range(0, self.map_width, spacing):
+                if self.is_free((r, c)):
+                    candidates.append((r, c))
+        self._raw_grid_cells = candidates
+        self.get_logger().info(
+            f"Grid de exploracion: {len(candidates)} candidatos "
+            f"(espaciado {self.grid_spacing_m}m). Esperando pose inicial..."
+        )
+
+    def _apply_bfs_filter_and_start(self):
+        if self.current_pose is None or not self._raw_grid_cells:
+            return
+        self._waypoints_ready = True  # marcar antes para no re-entrar
+
+        rx = self.current_pose.pose.position.x
+        ry = self.current_pose.pose.position.y
+        start_cell = self.world_to_map(rx, ry)
+        if start_cell is None:
+            self.get_logger().warn("Pose inicial fuera del mapa — no se puede generar waypoints.")
+            return
+        if not self.is_free(start_cell):
+            start_cell = self.find_nearest_free_cell(start_cell)
+        if start_cell is None:
+            return
+
+        self.get_logger().info("Calculando waypoints accesibles por BFS (puede tardar 1-2 s)...")
+        reachable = self._bfs_reachable(start_cell)
+
+        filtered = [c for c in self._raw_grid_cells if c in reachable]
+        ordered = self._greedy_order(start_cell, filtered)
+
+        self.waypoints = [
+            (self.map_to_world(r, c)[0], self.map_to_world(r, c)[1], 0.0)
+            for r, c in ordered
+        ]
+        self.get_logger().info(
+            f"Waypoints de exploracion: {len(self.waypoints)} accesibles "
+            f"de {len(self._raw_grid_cells)} candidatos."
+        )
+        self.start_exploration()
+
+    def _bfs_reachable(self, start_cell):
+        visited = {start_cell}
+        queue = deque([start_cell])
+        while queue:
+            r, c = queue.popleft()
+            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1),
+                           (-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                nb = (r + dr, c + dc)
+                if nb not in visited and self.is_free(nb):
+                    visited.add(nb)
+                    queue.append(nb)
+        return visited
+
+    def _greedy_order(self, start, cells):
+        remaining = list(cells)
+        ordered = []
+        current = start
+        while remaining:
+            nearest = min(remaining, key=lambda c: math.hypot(c[0] - current[0], c[1] - current[1]))
+            ordered.append(nearest)
+            remaining.remove(nearest)
+            current = nearest
+        return ordered
 
     # ------------------------------------------------------------------
     # CSV logging
