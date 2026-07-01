@@ -50,11 +50,11 @@ class ParticleLocalizer(Node):
     def __init__(self):
         super().__init__("particle_localizer")
 
-        self.num_particles = 300  #esta es la cantidad de particulas obviamente
+        self.num_particles = 500
 
         # Parametros de ruido
-        self.init_std_xy = 0.20
-        self.init_std_yaw = 0.15
+        self.init_std_xy = 0.30
+        self.init_std_yaw = 0.8
         self.motion_std_distance = 0.01
         self.motion_std_yaw = 0.01
 
@@ -270,7 +270,6 @@ class ParticleLocalizer(Node):
             self.get_logger().warn("Llego /initialpose pero todavia no hay /map. Ignorando.")
             return
 
-        #leemos la posicion que nos llego de tocar el botoncito 2d estimate, onda el de la flecha verde gigante (girl thats abuse)
         x0 = msg.pose.pose.position.x
         y0 = msg.pose.pose.position.y
         yaw0 = yaw_from_quaternion(msg.pose.pose.orientation)
@@ -279,21 +278,16 @@ class ParticleLocalizer(Node):
         self.weights = []
 
         for _ in range(self.num_particles):
-            # aca creamos las 300 particulas, y las posicionamos pero no todas en el mismo lugar sino que con ruido gaussiano
-            #onda las incertidumbres iniciales
             x = random.gauss(x0, self.init_std_xy)
             y = random.gauss(y0, self.init_std_xy)
             yaw = random.gauss(yaw0, self.init_std_yaw)
-
             self.particles.append([x, y, normalize_angle(yaw)])
             self.weights.append(1.0 / self.num_particles)
 
         self.initialized = True
-        #borramos la odometria vieja porque empece de un lugar nuevo por asi decir
         self.last_odom_x = None
         self.last_odom_y = None
         self.last_odom_yaw = None
-
         self.publish_outputs(msg.header.stamp)
 
         self.get_logger().info(
@@ -375,7 +369,33 @@ class ParticleLocalizer(Node):
             return
 
         self.update_weights_with_scan(msg)
+
+        # N_eff se calcula ANTES de resamplear, cuando los pesos todavia son
+        # no-uniformes. Calcularlo despues es un bug: resample_particles()
+        # resetea self.weights a uniforme, asi que daria siempre num_particles.
+        sum_sq = sum(w * w for w in self.weights)
+        n_eff = 1.0 / sum_sq if sum_sq > 0 else float(self.num_particles)
+
         self.resample_particles()
+
+        xs = [p[0] for p in self.particles]
+        ys = [p[1] for p in self.particles]
+        yaws = [p[2] for p in self.particles]
+        mean_x = sum(xs) / len(xs)
+        mean_y = sum(ys) / len(ys)
+        std_x = math.sqrt(sum((v - mean_x) ** 2 for v in xs) / len(xs))
+        std_y = math.sqrt(sum((v - mean_y) ** 2 for v in ys) / len(ys))
+        std_yaw = math.sqrt(sum((v - mean_yaw) ** 2
+                               for v in yaws
+                               for mean_yaw in [sum(yaws) / len(yaws)]) / len(yaws))
+
+        self.get_logger().info(
+            f"DIAG localizer: N_eff={n_eff:.0f}/{self.num_particles} | "
+            f"pose_est=({mean_x:.2f},{mean_y:.2f}) | "
+            f"std=({std_x:.2f}m, {std_y:.2f}m, {math.degrees(std_yaw):.1f}deg)",
+            throttle_duration_sec=2.0,
+        )
+
         self.publish_outputs(msg.header.stamp)
 
     def update_weights_with_scan(self, scan):
@@ -390,9 +410,14 @@ class ParticleLocalizer(Node):
         """
         log_weights = []
 
-        for x, y, yaw in self.particles:
+        # DIAG: para la primera particula, loguear detalle rayo a rayo
+        diag_first = True
+
+        for p_idx, (x, y, yaw) in enumerate(self.particles):
             log_w = 0.0
             valid_beams = 0
+            beams_out_of_map = 0
+            sample_dists = []   # para el diag de la primera particula
 
             for i in range(0, len(scan.ranges), self.laser_step):
                 r = scan.ranges[i]
@@ -404,30 +429,57 @@ class ParticleLocalizer(Node):
                     continue
 
                 angle = scan.angle_min + i * scan.angle_increment
-                global_angle = yaw + angle
+                # El mapa fue construido por corrected_map_node.py aplicando
+                # LIDAR_ANGLE_OFFSET = pi/2. Sin este mismo offset aqui, los
+                # rayos se proyectan 90° en la direccion equivocada respecto al
+                # mapa → el filtro converge al yaw incorrecto.
+                global_angle = yaw + math.pi / 2 + angle
 
                 hit_x = x + r * math.cos(global_angle)
                 hit_y = y + r * math.sin(global_angle)
 
                 dist = self.distance_to_nearest_obstacle(hit_x, hit_y)
 
-                # distribucion gaussiana de los pesos (onda el modelo gaussiano)
-                # si dist es chico, el punto del lidar esta cerca de una pared -> buen peso.
-                # si dist es grande, cae lejos de paredes -> mal peso.
+                if dist >= self.max_likelihood_dist:
+                    beams_out_of_map += 1
+
                 log_w += -0.5 * (dist / self.sensor_sigma) ** 2
                 valid_beams += 1
+
+                if diag_first and len(sample_dists) < 5:
+                    sample_dists.append((round(hit_x, 2), round(hit_y, 2), round(dist, 3)))
+
+            if diag_first:
+                self.get_logger().info(
+                    f"DIAG scan p0: particula=({x:.2f},{y:.2f},{math.degrees(yaw):.1f}deg) | "
+                    f"rayos_validos={valid_beams} de {len(scan.ranges)//self.laser_step} | "
+                    f"rayos_fuera_mapa={beams_out_of_map} | "
+                    f"sample_hits(hit_x,hit_y,dist_pared)={sample_dists}",
+                    throttle_duration_sec=2.0,
+                )
+                diag_first = False
 
             if valid_beams == 0:
                 log_w = -100.0
             else:
-                # Promediamos para que el peso no dependa tanto de cuantos rayos usamos.
                 log_w = log_w / valid_beams
 
             log_weights.append(log_w)
 
-        # Normalizacion estable:
-        # trabajamos con log-pesos para evitar numeros demasiado chicos.
+        # Normalizacion estable
         max_log_w = max(log_weights)
+        min_log_w = min(log_weights)
+
+        # DIAG: si max-min es muy chico, todos los pesos van a quedar uniformes
+        # y N_eff se mantendra en num_particles. La causa tipica: todos los rayos
+        # caen fuera del mapa (dist=max_likelihood_dist en todos) o el mapa no
+        # corresponde al bag y el LIDAR nunca "ve" paredes que coincidan.
+        self.get_logger().info(
+            f"DIAG pesos log: max={max_log_w:.4f} min={min_log_w:.4f} "
+            f"spread={max_log_w - min_log_w:.4f} "
+            f"(si spread < 0.01 -> pesos uniformes -> N_eff=N, filtro no discrimina)",
+            throttle_duration_sec=2.0,
+        )
 
         weights = [math.exp(lw - max_log_w) for lw in log_weights]
         total = sum(weights)

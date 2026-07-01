@@ -47,7 +47,7 @@ class ConeDetector(Node):
         self.declare_parameter("max_aspect_ratio", 10.0)
         self.declare_parameter("morph_kernel_size", 3)
         self.declare_parameter("apply_morph_open", False)
-        self.declare_parameter("real_cone_height_m", 0.18)
+        self.declare_parameter("real_cone_height_m", 0.40)
         self.declare_parameter("min_consistent_detections", 3)
         self.declare_parameter("max_spread_m", 0.30)
         self.declare_parameter("max_age_sec", 2.0)
