@@ -84,7 +84,9 @@ def generate_launch_description():
         executable="particle_localizer",
         name="particle_localizer",
         output="screen",
-        parameters=[{"use_sim_time": use_sim_time}],
+        parameters=[{"use_sim_time": use_sim_time},
+                   {"mode", "real"},
+                   ],
         remappings=[
             ("/odom", "/tb4_0/odom"),
             ("/scan", "/tb4_0/scan"),
