@@ -14,6 +14,7 @@ setup(
         ('share/tpf/launch', glob('launch/*.launch.py')),
         ('share/tpf/rviz', glob('rviz/*.rviz')),
         ('share/tpf/maps', glob('maps/*')),
+        ('share/tpf/config', glob('config/*.csv')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -36,6 +37,7 @@ setup(
             'path_planner = tpf.path_planner:main',
             'path_follower = tpf.path_follower:main',
             'navigation_manager = tpf.navigation_manager:main',
+            'virtual_landmark_sensor = tpf.virtual_landmark_sensor:main',
         ],
     },
 )

@@ -50,11 +50,20 @@ class ParticleLocalizer(Node):
     def __init__(self):
         super().__init__("particle_localizer")
 
-        self.num_particles = 300  #esta es la cantidad de particulas obviamente
+        self.declare_parameter("mode", "simulation")  # sim o real
+        self.robot_type = self.get_parameter("mode").value
 
-        # Parametros de ruido
-        self.init_std_xy = 0.20
-        self.init_std_yaw = 0.15
+        if self.robot_type == "real":
+            self.num_particles = 500
+            self.lidar_angle_offset = math.pi / 2.0
+            self.init_std_xy = 0.30
+            self.init_std_yaw = 0.80
+        else:
+            self.num_particles = 300
+            self.lidar_angle_offset = 0.0
+            self.init_std_xy = 0.20
+            self.init_std_yaw = 0.15
+
         self.motion_std_distance = 0.01
         self.motion_std_yaw = 0.01
 
@@ -84,6 +93,31 @@ class ParticleLocalizer(Node):
         self.map_origin_y = None
         self.occupancy_data = None
         self.distance_field = None
+        
+        self.landmark_sigma_dist = 0.40
+        self.landmark_sigma_bearing = 0.30
+        self.landmark_scale = 0.15
+
+        self.landmarks = {
+            0: (-2.4, 2.4),
+            1: (-1.3, 2.4),
+            2: (0.3, 2.4),
+            3: (1.5, 2.2),
+            4: (2.4, 1.5),
+            5: (2.4, 0.3),
+            6: (2.4, -1.0),
+            7: (1.4, -2.4),
+            8: (0.3, -2.4),
+            9: (-1.0, -2.4),
+            10: (-2.4, -1.4),
+            11: (-2.4, -0.2),
+            12: (-1.4, 0.5),
+            13: (-0.2, 0.5),
+            14: (1.0, 0.8),
+            15: (1.8, -0.4),
+        }
+
+        self.latest_landmark_obs = []
 
         # /map viene de nav2_map_server y usa QoS transient local.
         map_qos = QoSProfile(
@@ -114,6 +148,13 @@ class ParticleLocalizer(Node):
             10,
         )
 
+        self.landmark_obs_sub = self.create_subscription(
+            PoseArray,
+            "/aruco_observations",
+            self.landmark_obs_callback,
+            10,
+        )
+        
         self.scan_sub = self.create_subscription(
             LaserScan,
             "/scan", #scan del lidar, lo usamos para corregir las particulas contra el mapa
@@ -135,6 +176,14 @@ class ParticleLocalizer(Node):
 
         self.get_logger().info("Particle localizer iniciado. Esperando /map e /initialpose...")
 
+    def landmark_obs_callback(self, msg):
+        self.latest_landmark_obs = [
+            (int(p.position.x), p.position.y, p.position.z)
+            for p in msg.poses
+            if int(p.position.x) in self.landmarks
+        ]
+
+    
     def map_callback(self, msg):
         """
         Recibe el mapa /map.
@@ -394,7 +443,7 @@ class ParticleLocalizer(Node):
                     continue
 
                 angle = scan.angle_min + i * scan.angle_increment
-                global_angle = yaw + angle
+                global_angle = yaw + self.lidar_angle_offset + angle
 
                 hit_x = x + r * math.cos(global_angle)
                 hit_y = y + r * math.sin(global_angle)
@@ -407,11 +456,25 @@ class ParticleLocalizer(Node):
                 log_w += -0.5 * (dist / self.sensor_sigma) ** 2
                 valid_beams += 1
 
-            if valid_beams == 0:
-                log_w = -100.0
-            else:
-                # Promediamos para que el peso no dependa tanto de cuantos rayos usamos.
-                log_w = log_w / valid_beams
+            
+            if self.latest_landmark_obs:
+                lm_log = 0.0
+
+                for tag_id, obs_dist, obs_bearing in self.latest_landmark_obs:
+                    lx, ly = self.landmarks[tag_id]
+
+                    pred_dist = math.sqrt((lx - x) ** 2 + (ly - y) ** 2)
+                    pred_bearing = normalize_angle(math.atan2(ly - y, lx - x) - yaw)
+
+                    delta_dist = obs_dist - pred_dist
+                    delta_bearing = normalize_angle(obs_bearing - pred_bearing)
+
+                    lm_log += (
+                        -0.5 * (delta_dist / self.landmark_sigma_dist) ** 2
+                        -0.5 * (delta_bearing / self.landmark_sigma_bearing) ** 2
+                    )
+
+                log_w += self.landmark_scale * lm_log
 
             log_weights.append(log_w)
 
