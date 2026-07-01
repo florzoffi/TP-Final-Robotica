@@ -47,7 +47,14 @@ class ConeDetector(Node):
         self.declare_parameter("max_aspect_ratio", 10.0)
         self.declare_parameter("morph_kernel_size", 3)
         self.declare_parameter("apply_morph_open", False)
-        self.declare_parameter("real_cone_height_m", 0.40)
+        # Factor de escala para la estimacion de distancia por tamaño aparente.
+        # No es necesariamente la altura fisica del cono — en la practica
+        # representa la altura efectiva de la region segmentada (mascara HSV)
+        # que la camara ve, que depende del angulo de vision, la iluminacion
+        # y los umbrales de color. Se calibra empiricamente: se ajusta hasta
+        # que la coordenada publicada en /cone_detection coincide con la
+        # posicion real del cono en el mapa.
+        self.declare_parameter("cone_distance_scale_m", 0.50)
         self.declare_parameter("min_consistent_detections", 3)
         self.declare_parameter("max_spread_m", 0.30)
         self.declare_parameter("max_age_sec", 2.0)
@@ -64,7 +71,7 @@ class ConeDetector(Node):
         self.max_aspect_ratio = self.get_parameter("max_aspect_ratio").value
         self.morph_kernel_size = self.get_parameter("morph_kernel_size").value
         self.apply_morph_open = self.get_parameter("apply_morph_open").value
-        self.real_cone_height_m = self.get_parameter("real_cone_height_m").value
+        self.cone_distance_scale_m = self.get_parameter("cone_distance_scale_m").value
         self.min_consistent_detections = self.get_parameter("min_consistent_detections").value
         self.max_spread_m = self.get_parameter("max_spread_m").value
         self.max_age_sec = self.get_parameter("max_age_sec").value
@@ -317,7 +324,7 @@ class ConeDetector(Node):
         fy = self.camera_matrix[1][1]
         cx_principal = self.camera_matrix[0][2]
 
-        distance = (self.real_cone_height_m * fy) / float(h)
+        distance = (self.cone_distance_scale_m * fy) / float(h)
 
         cx_box = x + w / 2.0
         pixel_offset = cx_box - cx_principal

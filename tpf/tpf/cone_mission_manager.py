@@ -5,6 +5,8 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
+from collections import deque
+
 from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped, PointStamped
 from nav_msgs.msg import OccupancyGrid
@@ -75,6 +77,7 @@ class ConeMissionManager(Node):
 
         self.mission_state = MissionState.EXPLORING
         self.waypoint_index = 0
+        self.current_pose = None
 
         # ---------------- estado del mapa (replica path_planner.py) ----------------
         self.map_received = False
@@ -111,6 +114,13 @@ class ConeMissionManager(Node):
             PointStamped,
             "/cone_detection",
             self.cone_callback,
+            10,
+        )
+
+        self.pose_sub = self.create_subscription(
+            PoseStamped,
+            "/estimated_pose",
+            lambda msg: setattr(self, "current_pose", msg),
             10,
         )
 
@@ -213,24 +223,89 @@ class ConeMissionManager(Node):
 
     def validate_and_snap(self, x, y):
         """
-        Si (x, y) cae en una celda libre del grid inflado, se devuelve tal
-        cual. Si no (el caso de "vi el cono a traves de un hueco/reja" —
-        la celda reportada esta dentro o pegada a una pared), se busca la
-        celda libre mas cercana dentro de un radio chico y se devuelve esa
-        en su lugar. Si no hay ninguna celda libre cerca, se devuelve None.
+        Encuentra la celda libre MAS CERCANA AL CONO que sea ALCANZABLE
+        desde la posicion actual del robot (BFS desde start_cell).
+
+        El snap simple (celda libre mas cercana al cono) falla cuando el cono
+        esta en una bolsa de espacio libre desconectada de donde esta el robot
+        — exactamente el caso de "vi el cono a traves de un hueco en la pared".
+        El BFS garantiza que el goal publicado sea alcanzable por Theta*.
         """
-        cell = self.world_to_map(x, y)
-        if cell is None:
+        goal_cell = self.world_to_map(x, y)
+        if goal_cell is None:
             return None
 
-        if self.is_free(cell):
-            return x, y
+        # Obtener celda de inicio desde la pose estimada del robot
+        if self.current_pose is not None:
+            rx = self.current_pose.pose.position.x
+            ry = self.current_pose.pose.position.y
+            start_cell = self.world_to_map(rx, ry)
+        else:
+            start_cell = None
 
-        nearest = self.find_nearest_free_cell(cell, max_radius=self.snap_radius_cells)
-        if nearest is None:
+        if start_cell is None or not self.is_free(start_cell):
+            # Sin pose del robot: fallback al snap geometrico simple
+            if self.is_free(goal_cell):
+                return x, y
+            nearest = self.find_nearest_free_cell(goal_cell, max_radius=self.snap_radius_cells)
+            return self.map_to_world(*nearest) if nearest else None
+
+        # BFS desde el robot: explora todas las celdas libres accesibles
+        # y devuelve la mas cercana (Euclideana de celda) al cono.
+        # Limita la exploracion a BFS_RADIUS celdas desde el robot para
+        # no recorrer el mapa entero (a 0.05 m/celda, 150 celdas = 7.5 m).
+        # 60 celdas * 0.05 m/celda = 3 m de radio — mas que suficiente para
+        # encontrar el punto de aproximacion, y pequeno para que el BFS en
+        # Python termine en milisegundos sin bloquear el callback de ROS.
+        BFS_RADIUS = 60
+        gr, gc = goal_cell
+        sr, sc = start_cell
+
+        visited = {start_cell}
+        queue = deque([start_cell])
+        best_cell = start_cell
+        best_dist = math.hypot(sr - gr, sc - gc)
+
+        while queue:
+            r, c = queue.popleft()
+            # OR: cortar si supera el radio en CUALQUIER direccion (no ambas).
+            if abs(r - sr) > BFS_RADIUS or abs(c - sc) > BFS_RADIUS:
+                continue
+
+            d = math.hypot(r - gr, c - gc)
+            if d < best_dist:
+                best_dist = d
+                best_cell = (r, c)
+
+            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1),
+                           (-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                nb = (r + dr, c + dc)
+                if nb not in visited and self.is_free(nb):
+                    visited.add(nb)
+                    queue.append(nb)
+
+        best_world = self.map_to_world(*best_cell)
+
+        if best_dist > 2.0 / self.map_resolution:
+            # La celda alcanzable mas cercana esta a mas de 2 m del cono:
+            # el cono es inaccesible desde esta posicion, no vale la pena
+            # intentarlo. Descartamos la deteccion para no mandar al robot
+            # a un punto arbitrario lejos del cono.
+            self.get_logger().warn(
+                f"Cono en ({x:.2f},{y:.2f}) inaccesible desde robot — "
+                f"mejor celda alcanzable a {best_dist * self.map_resolution:.1f}m del cono. "
+                f"Descartando deteccion."
+            )
             return None
 
-        return self.map_to_world(*nearest)
+        if best_cell != goal_cell:
+            self.get_logger().info(
+                f"BFS snap: cono en ({x:.2f},{y:.2f}) -> "
+                f"celda alcanzable mas cercana ({best_world[0]:.2f},{best_world[1]:.2f}) "
+                f"a {best_dist * self.map_resolution:.2f}m del cono."
+            )
+
+        return best_world
 
     def publish_goal(self, x, y, yaw):
         msg = PoseStamped()
