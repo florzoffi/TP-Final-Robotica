@@ -51,9 +51,9 @@ class ParticleLocalizer(Node):
         super().__init__("particle_localizer")
 
         self.declare_parameter("mode", "simulation")  # sim o real
-        self.robot_type = self.get_parameter("mode").value
+        self.mode = self.get_parameter("mode").value
 
-        if self.robot_type == "real":
+        if self.mode == "real":
             self.num_particles = 500
             self.lidar_angle_offset = math.pi / 2.0
             self.init_std_xy = 0.30
@@ -70,8 +70,25 @@ class ParticleLocalizer(Node):
         # Parametros del modelo de observacion con LIDAR
         self.laser_step = 10 #uso 1 d cada 10 rayos del lidar
         self.sensor_sigma = 0.20 #tolerancia contra paraedes, mas chico mas estricto
-        
+
         self.max_likelihood_dist = 1.0 # Distancia maxima que nos importa hasta la pared mas cercana
+
+        # Parametros del modelo de landmarks ArUco.
+        # La influencia es deliberadamente pequena respecto al LIDAR: los
+        # landmarks aportan informacion discreta y muy distintiva (ID unico),
+        # pero las estimaciones de distancia/bearing por camara tienen mas
+        # incertidumbre que el LIDAR. Un scale bajo evita que una observacion
+        # ArUco ruidosa sobreescriba la correccion del LIDAR.
+        self.landmark_sigma_dist = 0.40    # m  — tolerancia en distancia al landmark
+        self.landmark_sigma_bearing = 0.30 # rad — tolerancia en bearing al landmark
+        self.landmark_scale = 0.15         # fraccion de peso relativa al LIDAR
+
+        # Landmarks conocidos: {tag_id: (x, y)} en frame map, cargados del CSV.
+        self.landmarks = self._load_landmarks()
+
+        # Ultima observacion de ArUco recibida: lista de (tag_id, dist, bearing)
+        self.latest_landmark_obs = []
+        self.latest_landmark_stamp = None
         
         self.initialized = False
         self.particles = []     #cada particula la guardamos como [x, y, yaw] en coordenadas del mapa
@@ -141,11 +158,21 @@ class ParticleLocalizer(Node):
             10,
         )
 
+        # El TB4 real (y los rosbags de Parte C) publican /tb4_0/odom con QoS
+        # BEST_EFFORT — un subscriber RELIABLE (el default al pasar un int)
+        # queda incompatible y nunca recibe nada. BEST_EFFORT acá es seguro
+        # también contra Gazebo (su /odom es RELIABLE, y BEST_EFFORT matchea
+        # con cualquier publisher).
+        odom_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+        )
+
         self.odom_sub = self.create_subscription(
             Odometry,
             "/odom", #mi nueva odometria que me llega del robot
             self.odom_callback,
-            10,
+            odom_qos,
         )
 
         self.landmark_obs_sub = self.create_subscription(
@@ -159,6 +186,13 @@ class ParticleLocalizer(Node):
             LaserScan,
             "/scan", #scan del lidar, lo usamos para corregir las particulas contra el mapa
             self.scan_callback,
+            10,
+        )
+
+        self.landmark_obs_sub = self.create_subscription(
+            PoseArray,
+            "/aruco_observations",
+            self.landmark_obs_callback,
             10,
         )
 
@@ -182,8 +216,8 @@ class ParticleLocalizer(Node):
             for p in msg.poses
             if int(p.position.x) in self.landmarks
         ]
+        self.latest_landmark_stamp = msg.header.stamp
 
-    
     def map_callback(self, msg):
         """
         Recibe el mapa /map.
@@ -309,7 +343,6 @@ class ParticleLocalizer(Node):
             self.get_logger().warn("Llego /initialpose pero todavia no hay /map. Ignorando.")
             return
 
-        #leemos la posicion que nos llego de tocar el botoncito 2d estimate, onda el de la flecha verde gigante (girl thats abuse)
         x0 = msg.pose.pose.position.x
         y0 = msg.pose.pose.position.y
         yaw0 = yaw_from_quaternion(msg.pose.pose.orientation)
@@ -318,21 +351,16 @@ class ParticleLocalizer(Node):
         self.weights = []
 
         for _ in range(self.num_particles):
-            # aca creamos las 300 particulas, y las posicionamos pero no todas en el mismo lugar sino que con ruido gaussiano
-            #onda las incertidumbres iniciales
             x = random.gauss(x0, self.init_std_xy)
             y = random.gauss(y0, self.init_std_xy)
             yaw = random.gauss(yaw0, self.init_std_yaw)
-
             self.particles.append([x, y, normalize_angle(yaw)])
             self.weights.append(1.0 / self.num_particles)
 
         self.initialized = True
-        #borramos la odometria vieja porque empece de un lugar nuevo por asi decir
         self.last_odom_x = None
         self.last_odom_y = None
         self.last_odom_yaw = None
-
         self.publish_outputs(msg.header.stamp)
 
         self.get_logger().info(
@@ -414,7 +442,33 @@ class ParticleLocalizer(Node):
             return
 
         self.update_weights_with_scan(msg)
+
+        # N_eff se calcula ANTES de resamplear, cuando los pesos todavia son
+        # no-uniformes. Calcularlo despues es un bug: resample_particles()
+        # resetea self.weights a uniforme, asi que daria siempre num_particles.
+        sum_sq = sum(w * w for w in self.weights)
+        n_eff = 1.0 / sum_sq if sum_sq > 0 else float(self.num_particles)
+
         self.resample_particles()
+
+        xs = [p[0] for p in self.particles]
+        ys = [p[1] for p in self.particles]
+        yaws = [p[2] for p in self.particles]
+        mean_x = sum(xs) / len(xs)
+        mean_y = sum(ys) / len(ys)
+        std_x = math.sqrt(sum((v - mean_x) ** 2 for v in xs) / len(xs))
+        std_y = math.sqrt(sum((v - mean_y) ** 2 for v in ys) / len(ys))
+        std_yaw = math.sqrt(sum((v - mean_yaw) ** 2
+                               for v in yaws
+                               for mean_yaw in [sum(yaws) / len(yaws)]) / len(yaws))
+
+        self.get_logger().info(
+            f"DIAG localizer: N_eff={n_eff:.0f}/{self.num_particles} | "
+            f"pose_est=({mean_x:.2f},{mean_y:.2f}) | "
+            f"std=({std_x:.2f}m, {std_y:.2f}m, {math.degrees(std_yaw):.1f}deg)",
+            throttle_duration_sec=2.0,
+        )
+
         self.publish_outputs(msg.header.stamp)
 
     def update_weights_with_scan(self, scan):
@@ -429,9 +483,14 @@ class ParticleLocalizer(Node):
         """
         log_weights = []
 
-        for x, y, yaw in self.particles:
+        # DIAG: para la primera particula, loguear detalle rayo a rayo
+        diag_first = True
+
+        for p_idx, (x, y, yaw) in enumerate(self.particles):
             log_w = 0.0
             valid_beams = 0
+            beams_out_of_map = 0
+            sample_dists = []   # para el diag de la primera particula
 
             for i in range(0, len(scan.ranges), self.laser_step):
                 r = scan.ranges[i]
@@ -450,13 +509,28 @@ class ParticleLocalizer(Node):
 
                 dist = self.distance_to_nearest_obstacle(hit_x, hit_y)
 
-                # distribucion gaussiana de los pesos (onda el modelo gaussiano)
-                # si dist es chico, el punto del lidar esta cerca de una pared -> buen peso.
-                # si dist es grande, cae lejos de paredes -> mal peso.
+                if dist >= self.max_likelihood_dist:
+                    beams_out_of_map += 1
+
                 log_w += -0.5 * (dist / self.sensor_sigma) ** 2
                 valid_beams += 1
 
             
+            if diag_first:
+                self.get_logger().info(
+                    f"DIAG scan p0: particula=({x:.2f},{y:.2f},{math.degrees(yaw):.1f}deg) | "
+                    f"rayos_validos={valid_beams} de {len(scan.ranges)//self.laser_step} | "
+                    f"rayos_fuera_mapa={beams_out_of_map} | "
+                    f"sample_hits(hit_x,hit_y,dist_pared)={sample_dists}",
+                    throttle_duration_sec=2.0,
+                )
+                diag_first = False
+
+            if valid_beams == 0:
+                log_w = -100.0
+            else:
+                log_w = log_w / valid_beams
+
             if self.latest_landmark_obs:
                 lm_log = 0.0
 
@@ -476,11 +550,42 @@ class ParticleLocalizer(Node):
 
                 log_w += self.landmark_scale * lm_log
 
+
+            # Correccion de landmarks ArUco (peso mucho menor que el LIDAR).
+            # Por cada observacion (tag_id, dist, bearing) comparamos la
+            # distancia y bearing PREDICHOS desde esta particula contra los
+            # observados. El aporte va escalado por landmark_scale para no
+            # sobreescribir la informacion del LIDAR.
+            if self.latest_landmark_obs:
+                lm_log = 0.0
+                for tag_id, obs_dist, obs_bearing in self.latest_landmark_obs:
+                    lx, ly = self.landmarks[tag_id]
+                    pred_dist = math.sqrt((lx - x) ** 2 + (ly - y) ** 2)
+                    pred_bearing = normalize_angle(math.atan2(ly - y, lx - x) - yaw)
+                    delta_dist = obs_dist - pred_dist
+                    delta_bearing = normalize_angle(obs_bearing - pred_bearing)
+                    lm_log += (
+                        -0.5 * (delta_dist / self.landmark_sigma_dist) ** 2
+                        - 0.5 * (delta_bearing / self.landmark_sigma_bearing) ** 2
+                    )
+                log_w += self.landmark_scale * lm_log
+
             log_weights.append(log_w)
 
-        # Normalizacion estable:
-        # trabajamos con log-pesos para evitar numeros demasiado chicos.
+        # Normalizacion estable
         max_log_w = max(log_weights)
+        min_log_w = min(log_weights)
+
+        # DIAG: si max-min es muy chico, todos los pesos van a quedar uniformes
+        # y N_eff se mantendra en num_particles. La causa tipica: todos los rayos
+        # caen fuera del mapa (dist=max_likelihood_dist en todos) o el mapa no
+        # corresponde al bag y el LIDAR nunca "ve" paredes que coincidan.
+        self.get_logger().info(
+            f"DIAG pesos log: max={max_log_w:.4f} min={min_log_w:.4f} "
+            f"spread={max_log_w - min_log_w:.4f} "
+            f"(si spread < 0.01 -> pesos uniformes -> N_eff=N, filtro no discrimina)",
+            throttle_duration_sec=2.0,
+        )
 
         weights = [math.exp(lw - max_log_w) for lw in log_weights]
         total = sum(weights)

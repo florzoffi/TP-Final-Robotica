@@ -38,6 +38,8 @@ setup(
             'path_follower = tpf.path_follower:main',
             'navigation_manager = tpf.navigation_manager:main',
             'virtual_landmark_sensor = tpf.virtual_landmark_sensor:main',
+            'cone_detector = tpf.cone_detector:main',
+            'cone_mission_manager = tpf.cone_mission_manager:main',
         ],
     },
 )
