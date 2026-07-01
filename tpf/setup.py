@@ -36,6 +36,8 @@ setup(
             'path_planner = tpf.path_planner:main',
             'path_follower = tpf.path_follower:main',
             'navigation_manager = tpf.navigation_manager:main',
+            'cone_detector = tpf.cone_detector:main',
+            'cone_mission_manager = tpf.cone_mission_manager:main',
         ],
     },
 )

@@ -373,8 +373,24 @@ class PathPlanner(Node):
             self.get_logger().info("Celda inicial ocupada — usando celda libre cercana.")
 
         if not self.is_free(goal_cell):
-            self.get_logger().warn("La celda objetivo esta ocupada o demasiado cerca de una pared.")
+            self.get_logger().warn(
+                f"DIAG planner: goal ({goal_x:.2f},{goal_y:.2f}) -> celda {goal_cell} OCUPADA."
+            )
             return
+
+        # DIAG: loguear start/goal en coordenadas de mundo Y de celda para
+        # poder ubicarlos visualmente en el mapa y entender por que Theta* falla.
+        start_world = self.map_to_world(*start_cell)
+        goal_world = self.map_to_world(*goal_cell)
+        self.get_logger().info(
+            f"DIAG planner: start mundo=({start_x:.2f},{start_y:.2f}) "
+            f"celda={start_cell} libre={self.is_free(start_cell)} | "
+            f"goal mundo=({goal_x:.2f},{goal_y:.2f}) -> "
+            f"celda={goal_cell} libre={self.is_free(goal_cell)} | "
+            f"start_snap=({start_world[0]:.2f},{start_world[1]:.2f}) "
+            f"goal_snap=({goal_world[0]:.2f},{goal_world[1]:.2f})",
+            throttle_duration_sec=2.0,
+        )
 
         # Planifica sobre mapa estático + obstáculos dinámicos del LIDAR.
         static_grid = self.inflated_grid
