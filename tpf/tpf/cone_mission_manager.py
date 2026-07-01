@@ -1,15 +1,16 @@
 import math
+import os
+import time
+from collections import deque
 from enum import Enum
 
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
-from collections import deque
-
 from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped, PointStamped
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid, Path
 
 
 class MissionState(Enum):
@@ -124,9 +125,27 @@ class ConeMissionManager(Node):
             10,
         )
 
+        self.plan_sub = self.create_subscription(
+            Path,
+            "/plan",
+            self.plan_callback,
+            10,
+        )
+
         self.goal_pub = self.create_publisher(PoseStamped, "/goal_pose", 10)
 
-        self.get_logger().info("Cone mission manager iniciado. Esperando /map...")
+        # ---------------- CSV de detecciones ----------------
+        csv_path = "src/TP-Final-Robotica/tpf/cone_detections.csv"
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+        self._csv = open(csv_path, "w")
+        header = "timestamp,cone_x,cone_y,distance_m,bearing_deg,goal_x,goal_y,path_found,path_length_m,num_waypoints\n"
+        self._csv.write(header)
+        self._csv.flush()
+        self._pending_row = None   # fila esperando saber si se encontro camino
+        self._path_timeout_sec = 4.0
+        self.create_timer(0.5, self._csv_timeout_check)
+
+        self.get_logger().info(f"Cone mission manager iniciado. CSV: {csv_path}")
 
     # ------------------------------------------------------------------
     def map_callback(self, msg):
@@ -220,7 +239,72 @@ class ConeMissionManager(Node):
 
         self.mission_state = MissionState.PURSUING_CONE
         self.publish_goal(target_x, target_y, yaw=None)
+        self._log_detection(raw_x, raw_y, target_x, target_y)
 
+    # ------------------------------------------------------------------
+    # CSV logging
+    # ------------------------------------------------------------------
+    def _log_detection(self, cone_x, cone_y, goal_x, goal_y):
+        ts = time.time()
+        distance, bearing = 0.0, 0.0
+        if self.current_pose is not None:
+            rx = self.current_pose.pose.position.x
+            ry = self.current_pose.pose.position.y
+            siny = 2.0 * (self.current_pose.pose.orientation.w * self.current_pose.pose.orientation.z)
+            cosy = 1.0 - 2.0 * self.current_pose.pose.orientation.z ** 2
+            yaw = math.atan2(siny, cosy)
+            distance = math.hypot(cone_x - rx, cone_y - ry)
+            bearing = math.degrees(math.atan2(cone_y - ry, cone_x - rx) - yaw)
+
+        self._pending_row = {
+            "timestamp": ts,
+            "cone_x": cone_x,
+            "cone_y": cone_y,
+            "distance_m": distance,
+            "bearing_deg": bearing,
+            "goal_x": goal_x,
+            "goal_y": goal_y,
+        }
+
+    def plan_callback(self, msg):
+        if self._pending_row is None or len(msg.poses) == 0:
+            return
+        length = 0.0
+        for i in range(1, len(msg.poses)):
+            dx = msg.poses[i].pose.position.x - msg.poses[i - 1].pose.position.x
+            dy = msg.poses[i].pose.position.y - msg.poses[i - 1].pose.position.y
+            length += math.hypot(dx, dy)
+        self._write_csv_row(self._pending_row, path_found=True,
+                            path_length_m=length, num_waypoints=len(msg.poses))
+        self._pending_row = None
+
+    def _csv_timeout_check(self):
+        if self._pending_row is None:
+            return
+        elapsed = time.time() - self._pending_row["timestamp"]
+        if elapsed > self._path_timeout_sec:
+            self._write_csv_row(self._pending_row, path_found=False,
+                                path_length_m=0.0, num_waypoints=0)
+            self._pending_row = None
+
+    def _write_csv_row(self, row, path_found, path_length_m=0.0, num_waypoints=0):
+        self._csv.write(
+            f"{row['timestamp']:.3f},"
+            f"{row['cone_x']:.4f},{row['cone_y']:.4f},"
+            f"{row['distance_m']:.4f},{row['bearing_deg']:.2f},"
+            f"{row['goal_x']:.4f},{row['goal_y']:.4f},"
+            f"{'True' if path_found else 'False'},"
+            f"{path_length_m:.4f},{num_waypoints}\n"
+        )
+        self._csv.flush()
+        self.get_logger().info(
+            f"CSV: cono=({row['cone_x']:.2f},{row['cone_y']:.2f}) "
+            f"dist={row['distance_m']:.2f}m bearing={row['bearing_deg']:.1f}deg "
+            f"goal=({row['goal_x']:.2f},{row['goal_y']:.2f}) "
+            f"path_found={path_found} length={path_length_m:.2f}m waypoints={num_waypoints}"
+        )
+
+    # ------------------------------------------------------------------
     def validate_and_snap(self, x, y):
         """
         Encuentra la celda libre MAS CERCANA AL CONO que sea ALCANZABLE
@@ -398,6 +482,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
 
+    node._csv.close()
     node.destroy_node()
     rclpy.shutdown()
 
