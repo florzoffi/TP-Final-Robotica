@@ -47,13 +47,6 @@ class ConeDetector(Node):
         self.declare_parameter("max_aspect_ratio", 10.0)
         self.declare_parameter("morph_kernel_size", 3)
         self.declare_parameter("apply_morph_open", False)
-        # Factor de escala para la estimacion de distancia por tamaño aparente.
-        # No es necesariamente la altura fisica del cono — en la practica
-        # representa la altura efectiva de la region segmentada (mascara HSV)
-        # que la camara ve, que depende del angulo de vision, la iluminacion
-        # y los umbrales de color. Se calibra empiricamente: se ajusta hasta
-        # que la coordenada publicada en /cone_detection coincide con la
-        # posicion real del cono en el mapa.
         self.declare_parameter("cone_distance_scale_m", 0.50)
         self.declare_parameter("min_consistent_detections", 3)
         self.declare_parameter("max_spread_m", 0.30)
@@ -79,10 +72,6 @@ class ConeDetector(Node):
         self.debug_publish = self.get_parameter("debug_publish").value
         self.debug_cv_window = self.get_parameter("debug_cv_window").value
 
-        # "ros2 param set" solo actualiza el valor en el servidor de
-        # parametros — sin este callback, los atributos cacheados arriba
-        # (los que realmente usa segment_red/find_best_cone_contour) nunca
-        # se enterarian del cambio y el tuneo en vivo no tendria efecto.
         self.add_on_set_parameters_callback(self.on_parameters_set)
 
         # ---------------- estado de calibracion / pose ----------------
@@ -92,7 +81,6 @@ class ConeDetector(Node):
         # ---------------- estado de debounce ----------------
         # cada entrada: (x, y, stamp_sec)
         self.recent_detections = deque(maxlen=20)
-        self.last_confirmed_xy = None
 
         # ---------------- subscripciones ----------------
         qos_camera = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
@@ -177,10 +165,6 @@ class ConeDetector(Node):
             cv2.rectangle(debug_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.circle(debug_frame, (x + w // 2, y + h // 2), 4, (0, 255, 0), -1)
 
-            # La estimacion de distancia/bearing y la proyeccion al frame
-            # "map" si necesitan calibracion (camera_info) y pose
-            # (estimated_pose) — recien disponibles una vez que el FSM de
-            # Parte B esta localizado.
             if self.camera_matrix is None:
                 self.get_logger().warn(
                     "Cono visto pero sin /camera_info todavia — no se puede estimar distancia.",
@@ -378,15 +362,12 @@ class ConeDetector(Node):
         if spread > self.max_spread_m:
             return
 
-        # Ya confirmamos este mismo cluster antes — no repetir publicacion
-        # salvo que el cluster se haya movido (otro cono, o correccion).
-        if self.last_confirmed_xy is not None:
-            dx = mean_x - self.last_confirmed_xy[0]
-            dy = mean_y - self.last_confirmed_xy[1]
-            if math.hypot(dx, dy) < self.recompute_distance_m:
-                return
-
-        self.last_confirmed_xy = (mean_x, mean_y)
+        # Limpiamos el buffer despues de confirmar: el detector necesita
+        # acumular detecciones frescas antes de re-publicar (~1-2s).
+        # Esto permite que si el cono es inaccesible desde el angulo actual,
+        # cone_mission_manager lo descarte y el detector lo re-evalue cuando
+        # el robot se mueva a una posicion con mejor acceso.
+        self.recent_detections.clear()
         self.publish_confirmed(mean_x, mean_y)
 
     def publish_confirmed(self, x, y):
