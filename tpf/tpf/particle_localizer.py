@@ -9,7 +9,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPo
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray, Pose
 from nav_msgs.msg import Odometry, OccupancyGrid
 from sensor_msgs.msg import LaserScan
-
+import csv
 
 def yaw_from_quaternion(q):
     """
@@ -49,10 +49,11 @@ class ParticleLocalizer(Node):
 
     def __init__(self):
         super().__init__("particle_localizer")
-
+        
+        
         self.declare_parameter("mode", "simulation")  # sim o real
         self.mode = self.get_parameter("mode").value
-
+        
         if self.mode == "real":
             self.num_particles = 500
             self.lidar_angle_offset = math.pi / 2.0
@@ -64,6 +65,10 @@ class ParticleLocalizer(Node):
             self.init_std_xy = 0.20
             self.init_std_yaw = 0.15
 
+        self.get_logger().info(
+            f"Modo localizer={self.mode}, lidar_angle_offset={self.lidar_angle_offset}"
+        )
+        
         self.motion_std_distance = 0.01
         self.motion_std_yaw = 0.01
 
@@ -82,9 +87,6 @@ class ParticleLocalizer(Node):
         self.landmark_sigma_dist = 0.40    # m  — tolerancia en distancia al landmark
         self.landmark_sigma_bearing = 0.30 # rad — tolerancia en bearing al landmark
         self.landmark_scale = 0.15         # fraccion de peso relativa al LIDAR
-
-        # Landmarks conocidos: {tag_id: (x, y)} en frame map, cargados del CSV.
-        self.landmarks = self._load_landmarks()
 
         # Ultima observacion de ArUco recibida: lista de (tag_id, dist, bearing)
         self.latest_landmark_obs = []
@@ -115,24 +117,10 @@ class ParticleLocalizer(Node):
         self.landmark_sigma_bearing = 0.30
         self.landmark_scale = 0.15
 
-        self.landmarks = {
-            0: (-2.4, 2.4),
-            1: (-1.3, 2.4),
-            2: (0.3, 2.4),
-            3: (1.5, 2.2),
-            4: (2.4, 1.5),
-            5: (2.4, 0.3),
-            6: (2.4, -1.0),
-            7: (1.4, -2.4),
-            8: (0.3, -2.4),
-            9: (-1.0, -2.4),
-            10: (-2.4, -1.4),
-            11: (-2.4, -0.2),
-            12: (-1.4, 0.5),
-            13: (-0.2, 0.5),
-            14: (1.0, 0.8),
-            15: (1.8, -0.4),
-        }
+        self.declare_parameter("landmark_csv", "")
+
+        landmark_csv = self.get_parameter("landmark_csv").value
+        self.landmarks = self.load_landmarks(landmark_csv)
 
         self.latest_landmark_obs = []
 
@@ -189,13 +177,6 @@ class ParticleLocalizer(Node):
             10,
         )
 
-        self.landmark_obs_sub = self.create_subscription(
-            PoseArray,
-            "/aruco_observations",
-            self.landmark_obs_callback,
-            10,
-        )
-
         self.estimated_pose_pub = self.create_publisher(
             PoseStamped,
             "/estimated_pose", #la pose estimada es el promedio de todas las particulas
@@ -209,6 +190,35 @@ class ParticleLocalizer(Node):
         )
 
         self.get_logger().info("Particle localizer iniciado. Esperando /map e /initialpose...")
+
+    def load_landmarks(self, path):
+        landmarks = {}
+
+        if not path:
+            self.get_logger().warn("No se pasó landmark_csv.")
+            return landmarks
+
+        try:
+            with open(path, "r") as f:
+                reader = csv.DictReader(f)
+
+                for row in reader:
+                    tag_id = int(row["id"])
+                    x = float(row["x"])
+                    y = float(row["y"])
+
+                    landmarks[tag_id] = (x, y)
+
+            self.get_logger().info(
+                f"Se cargaron {len(landmarks)} landmarks desde {path}"
+            )
+
+        except Exception as e:
+            self.get_logger().error(
+                f"No pude cargar landmarks desde {path}: {e}"
+            )
+
+        return landmarks
 
     def landmark_obs_callback(self, msg):
         self.latest_landmark_obs = [
@@ -551,25 +561,6 @@ class ParticleLocalizer(Node):
                 log_w += self.landmark_scale * lm_log
 
 
-            # Correccion de landmarks ArUco (peso mucho menor que el LIDAR).
-            # Por cada observacion (tag_id, dist, bearing) comparamos la
-            # distancia y bearing PREDICHOS desde esta particula contra los
-            # observados. El aporte va escalado por landmark_scale para no
-            # sobreescribir la informacion del LIDAR.
-            if self.latest_landmark_obs:
-                lm_log = 0.0
-                for tag_id, obs_dist, obs_bearing in self.latest_landmark_obs:
-                    lx, ly = self.landmarks[tag_id]
-                    pred_dist = math.sqrt((lx - x) ** 2 + (ly - y) ** 2)
-                    pred_bearing = normalize_angle(math.atan2(ly - y, lx - x) - yaw)
-                    delta_dist = obs_dist - pred_dist
-                    delta_bearing = normalize_angle(obs_bearing - pred_bearing)
-                    lm_log += (
-                        -0.5 * (delta_dist / self.landmark_sigma_dist) ** 2
-                        - 0.5 * (delta_bearing / self.landmark_sigma_bearing) ** 2
-                    )
-                log_w += self.landmark_scale * lm_log
-
             log_weights.append(log_w)
 
         # Normalizacion estable
@@ -624,9 +615,9 @@ class ParticleLocalizer(Node):
 
             # Copiamos con un poquito de ruido para que no queden todas identicas.
             new_particles.append([
-                x + random.gauss(0.0, 0.01),
-                y + random.gauss(0.0, 0.01),
-                normalize_angle(yaw + random.gauss(0.0, 0.005)),
+                x + random.gauss(0.0, 0.005),
+                y + random.gauss(0.0, 0.005),
+                normalize_angle(yaw + random.gauss(0.0, 0.002)),
             ])
 
         self.particles = new_particles

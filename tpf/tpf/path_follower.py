@@ -4,7 +4,7 @@ import rclpy
 from rclpy.node import Node
 
 from geometry_msgs.msg import PoseStamped, Twist
-from nav_msgs.msg import Path
+from nav_msgs.msg import Path, Odometry
 from std_msgs.msg import String
 
 def yaw_from_quaternion(q):
@@ -59,9 +59,9 @@ class PathFollower(Node):
         self.nav_state = ""
 
         self.pose_sub = self.create_subscription(
-            PoseStamped,
-            "/estimated_pose",
-            self.pose_callback,
+            Odometry,
+            "/odom",
+            self.odom_callback,
             10,
         )
 
@@ -95,8 +95,11 @@ class PathFollower(Node):
     def nav_state_callback(self, msg):
         self.nav_state = msg.data
 
-    def pose_callback(self, msg):
-        self.current_pose = msg
+    def odom_callback(self, msg):
+        self.current_pose = PoseStamped()
+        self.current_pose.header = msg.header
+        self.current_pose.pose = msg.pose.pose
+        
         
     
         

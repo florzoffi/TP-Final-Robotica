@@ -20,7 +20,7 @@ def generate_launch_description():
 
     pkg_tpf = get_package_share_directory("tpf")
 
-    default_map_yaml = os.path.join(pkg_tpf, "maps", "map_real.yaml")
+    default_map_yaml = os.path.join(pkg_tpf, "maps", "map.yaml")
 
     use_sim_time_arg = DeclareLaunchArgument(
         "use_sim_time",
@@ -85,7 +85,7 @@ def generate_launch_description():
         name="particle_localizer",
         output="screen",
         parameters=[{"use_sim_time": use_sim_time},
-                   {"mode", "real"},
+                   {"mode": "real"},
                    ],
         remappings=[
             ("/odom", "/tb4_0/odom"),

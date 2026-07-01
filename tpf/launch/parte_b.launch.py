@@ -37,6 +37,12 @@ def generate_launch_description():
         "worlds",
         "casa_o.world",
     )
+    
+    landmark_csv = os.path.join(
+        pkg_tpf,
+        "config",
+        "virtual_landmarks.csv",
+    )
 
     # Para que Gazebo encuentre los modelos del mundo
     models_path = os.path.join(pkg_simulation, "worlds")
@@ -148,11 +154,10 @@ def generate_launch_description():
     particle_localizer = Node(
         package="tpf",
         executable="particle_localizer",
-        name="particle_localizer",
-        output="screen",
         parameters=[
             {"use_sim_time": True},
             {"mode": "simulation"},
+            {"landmark_csv": landmark_csv},
         ],
     )
     
