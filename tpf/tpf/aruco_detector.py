@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from geometry_msgs.msg import PoseArray, Pose
 from cv_bridge import CvBridge
 import numpy as np
 import cv2
@@ -24,6 +25,10 @@ class ArucoDetector(Node):
             "/aruco_image",
             10
         )
+
+        # Publica observaciones en tiempo real para el filtro de particulas.
+        # Cada Pose codifica: position.x=tag_id, position.y=distance, position.z=bearing.
+        self.obs_pub = self.create_publisher(PoseArray, "/aruco_observations", 10)
         self.declare_parameter("save_csv", True)
         self.save_csv = self.get_parameter("save_csv").value
 
@@ -93,6 +98,10 @@ class ArucoDetector(Node):
 
         corners, ids, rejected = self.detector.detectMarkers(gray)
 
+        obs_array = PoseArray()
+        obs_array.header = msg.header
+        obs_array.header.frame_id = "camera"
+
         if ids is not None:
             rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
                 corners,
@@ -104,7 +113,7 @@ class ArucoDetector(Node):
             cv2.aruco.drawDetectedMarkers(frame, corners, ids)
             cv2.aruco.drawDetectedMarkers(frame, rejected, borderColor=(0, 0, 255))
 
-            for i, tag_id in enumerate( ids_flat ):
+            for i, tag_id in enumerate(ids_flat):
                 tvec = tvecs[i][0]
 
                 x = tvec[0]
@@ -116,7 +125,7 @@ class ArucoDetector(Node):
 
                 if distance < 0.2 or distance > 1.5:
                     continue
-                
+
                 timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
 
                 if self.save_csv:
@@ -129,11 +138,19 @@ class ArucoDetector(Node):
                     f"Tag {tag_id} | dist={distance:.2f}m | bearing={bearing:.2f}rad"
                 )
 
+                # Codificamos la observacion en un Pose estandar:
+                # position.x = tag_id, position.y = distance, position.z = bearing
+                p = Pose()
+                p.position.x = float(tag_id)
+                p.position.y = float(distance)
+                p.position.z = float(bearing)
+                obs_array.poses.append(p)
+
+        self.obs_pub.publish(obs_array)
+
         annotated_msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
         annotated_msg.header = msg.header
         self.image_pub.publish(annotated_msg)
-        cv2.imshow("Aruco detections", frame)
-        cv2.waitKey(1)
 
 
 def main(args=None):

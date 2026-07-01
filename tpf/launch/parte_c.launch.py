@@ -132,6 +132,17 @@ def generate_launch_description():
         ],
     )
 
+    aruco_detector = Node(
+        package="tpf",
+        executable="aruco_detector",
+        name="aruco_detector",
+        output="screen",
+        parameters=[
+            {"use_sim_time": use_sim_time},
+            {"save_csv": False},
+        ],
+    )
+
     cone_detector = Node(
         package="tpf",
         executable="cone_detector",
@@ -183,6 +194,7 @@ def generate_launch_description():
         path_follower,
         navigation_manager,
         obstacle_avoidance,
+        aruco_detector,
         cone_detector,
         cone_mission_manager,
         rviz,

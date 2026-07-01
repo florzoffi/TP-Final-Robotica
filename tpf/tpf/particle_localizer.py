@@ -61,8 +61,25 @@ class ParticleLocalizer(Node):
         # Parametros del modelo de observacion con LIDAR
         self.laser_step = 10 #uso 1 d cada 10 rayos del lidar
         self.sensor_sigma = 0.20 #tolerancia contra paraedes, mas chico mas estricto
-        
+
         self.max_likelihood_dist = 1.0 # Distancia maxima que nos importa hasta la pared mas cercana
+
+        # Parametros del modelo de landmarks ArUco.
+        # La influencia es deliberadamente pequena respecto al LIDAR: los
+        # landmarks aportan informacion discreta y muy distintiva (ID unico),
+        # pero las estimaciones de distancia/bearing por camara tienen mas
+        # incertidumbre que el LIDAR. Un scale bajo evita que una observacion
+        # ArUco ruidosa sobreescriba la correccion del LIDAR.
+        self.landmark_sigma_dist = 0.40    # m  — tolerancia en distancia al landmark
+        self.landmark_sigma_bearing = 0.30 # rad — tolerancia en bearing al landmark
+        self.landmark_scale = 0.15         # fraccion de peso relativa al LIDAR
+
+        # Landmarks conocidos: {tag_id: (x, y)} en frame map, cargados del CSV.
+        self.landmarks = self._load_landmarks()
+
+        # Ultima observacion de ArUco recibida: lista de (tag_id, dist, bearing)
+        self.latest_landmark_obs = []
+        self.latest_landmark_stamp = None
         
         self.initialized = False
         self.particles = []     #cada particula la guardamos como [x, y, yaw] en coordenadas del mapa
@@ -131,6 +148,13 @@ class ParticleLocalizer(Node):
             10,
         )
 
+        self.landmark_obs_sub = self.create_subscription(
+            PoseArray,
+            "/aruco_observations",
+            self.landmark_obs_callback,
+            10,
+        )
+
         self.estimated_pose_pub = self.create_publisher(
             PoseStamped,
             "/estimated_pose", #la pose estimada es el promedio de todas las particulas
@@ -144,6 +168,38 @@ class ParticleLocalizer(Node):
         )
 
         self.get_logger().info("Particle localizer iniciado. Esperando /map e /initialpose...")
+
+    def _load_landmarks(self):
+        """Carga las posiciones de landmarks ArUco del CSV generado por Parte A."""
+        csv_path = "src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes.csv"
+        landmarks = {}
+        try:
+            with open(csv_path) as f:
+                next(f)  # saltar header
+                for line in f:
+                    parts = line.strip().split(",")
+                    if len(parts) < 3:
+                        continue
+                    tag_id = int(float(parts[0]))
+                    x = float(parts[1])
+                    y = float(parts[2])
+                    landmarks[tag_id] = (x, y)
+            self.get_logger().info(f"Landmarks cargados: {len(landmarks)} tags de {csv_path}")
+        except FileNotFoundError:
+            self.get_logger().warn(f"No se encontro {csv_path} — correccion de landmarks desactivada.")
+        return landmarks
+
+    def landmark_obs_callback(self, msg):
+        """
+        Recibe las observaciones de ArUco en tiempo real desde aruco_detector.
+        Cada Pose codifica: position.x=tag_id, position.y=distance, position.z=bearing.
+        """
+        self.latest_landmark_obs = [
+            (int(p.position.x), p.position.y, p.position.z)
+            for p in msg.poses
+            if int(p.position.x) in self.landmarks
+        ]
+        self.latest_landmark_stamp = msg.header.stamp
 
     def map_callback(self, msg):
         """
@@ -463,6 +519,25 @@ class ParticleLocalizer(Node):
                 log_w = -100.0
             else:
                 log_w = log_w / valid_beams
+
+            # Correccion de landmarks ArUco (peso mucho menor que el LIDAR).
+            # Por cada observacion (tag_id, dist, bearing) comparamos la
+            # distancia y bearing PREDICHOS desde esta particula contra los
+            # observados. El aporte va escalado por landmark_scale para no
+            # sobreescribir la informacion del LIDAR.
+            if self.latest_landmark_obs:
+                lm_log = 0.0
+                for tag_id, obs_dist, obs_bearing in self.latest_landmark_obs:
+                    lx, ly = self.landmarks[tag_id]
+                    pred_dist = math.sqrt((lx - x) ** 2 + (ly - y) ** 2)
+                    pred_bearing = normalize_angle(math.atan2(ly - y, lx - x) - yaw)
+                    delta_dist = obs_dist - pred_dist
+                    delta_bearing = normalize_angle(obs_bearing - pred_bearing)
+                    lm_log += (
+                        -0.5 * (delta_dist / self.landmark_sigma_dist) ** 2
+                        - 0.5 * (delta_bearing / self.landmark_sigma_bearing) ** 2
+                    )
+                log_w += self.landmark_scale * lm_log
 
             log_weights.append(log_w)
 
