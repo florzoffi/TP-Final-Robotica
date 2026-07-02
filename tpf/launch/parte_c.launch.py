@@ -98,7 +98,9 @@ def generate_launch_description():
         executable="path_planner",
         name="path_planner",
         output="screen",
-        parameters=[{"use_sim_time": use_sim_time}],
+        parameters=[{"use_sim_time": use_sim_time},
+                    {"mode": "real"}
+                    ],
         remappings=[
             ("/scan", "/tb4_0/scan"),
         ],

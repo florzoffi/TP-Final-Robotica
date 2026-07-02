@@ -15,6 +15,14 @@ class PathPlanner(Node):
 
     def __init__(self):
         super().__init__("path_planner")
+        
+        self.declare_parameter("mode", "simulation")
+        self.mode = self.get_parameter("mode").value
+
+        if self.mode == "real":
+            self.lidar_angle_offset = math.pi / 2.0
+        else:
+            self.lidar_angle_offset = 0.0
 
         # Radio de seguridad alrededor de paredes onda para no acercarnos
         # El robot no es un punto, entonces inflamos obstáculos.
@@ -72,11 +80,16 @@ class PathPlanner(Node):
             10,
         )
 
+        scan_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+        )
+
         self.scan_sub = self.create_subscription(
             LaserScan,
             "/scan",
             self.scan_callback,
-            10,
+            scan_qos,
         )
 
         self.goal_sub = self.create_subscription(
@@ -280,7 +293,7 @@ class PathPlanner(Node):
             angle     = scan.angle_min + i * scan.angle_increment
             if abs(angle) > MAX_DYNAMIC_BEARING:
                 continue
-            world_ang = robot_yaw + angle
+            world_ang = robot_yaw + self.lidar_angle_offset + angle
             obs_x     = robot_x + r * math.cos(world_ang)
             obs_y     = robot_y + r * math.sin(world_ang)
 
