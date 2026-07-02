@@ -82,6 +82,7 @@ class ConeMissionManager(Node):
         self._pursuit_timeout_sec = 12000.0
         self._pursuit_cone_goal = None   # (x, y) del goal del cono actual
         self._cone_arrival_radius_m = 0.5
+        self._cone_goal_publish_time = None  # momento en que se publico el goal al cono
 
         # Estado del generador automatico de waypoints
         self._raw_grid_cells = []   # candidatos del grid (sin filtrar)
@@ -145,13 +146,26 @@ class ConeMissionManager(Node):
         csv_path = "src/TP-Final-Robotica/tpf/cone_detections.csv"
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
         self._csv = open(csv_path, "w")
-        header = "timestamp,cone_x,cone_y,distance_m,bearing_deg,goal_x,goal_y,path_found,path_length_m,num_waypoints\n"
+        header = (
+            "timestamp,cone_x,cone_y,distance_m,bearing_deg,"
+            "goal_x,goal_y,path_found,path_length_m,num_waypoints,"
+            "mission_outcome,pursuit_duration_sec\n"
+        )
         self._csv.write(header)
         self._csv.flush()
-        self._pending_row = None   # fila esperando saber si se encontro camino
+
+        # _pending_row se crea al detectar el cono y se escribe cuando la mision concluye.
+        # path_found/path_length_m/num_waypoints se rellenan cuando llega el primer /plan.
+        self._pending_row = None
         self._path_timeout_sec = 4.0
         self.create_timer(0.5, self._csv_timeout_check)
         self.create_timer(2.0, self._check_pursuit_timeout)
+
+        # ---------------- log de transiciones de la FSM ----------------
+        fsm_log_path = "src/TP-Final-Robotica/tpf/mission_fsm_log.csv"
+        self._fsm_log = open(fsm_log_path, "w")
+        self._fsm_log.write("timestamp,from_state,to_state,trigger\n")
+        self._fsm_log.flush()
 
         self.get_logger().info(f"Cone mission manager iniciado. CSV: {csv_path}")
 
@@ -184,13 +198,16 @@ class ConeMissionManager(Node):
             return
         self.mission_state = MissionState.EXPLORING
         self.waypoint_index = 0
+        self._log_fsm_transition("INIT", "EXPLORING", "START")
         self.publish_waypoint_goal(self.waypoint_index)
 
     # ------------------------------------------------------------------
     def nav_state_callback(self, msg):
         # Cuando el FSM tiene pose inicial y espera un goal, es el momento
         # de aplicar el filtro BFS (ya hay current_pose disponible).
-        if msg.data in ("LOCALIZED", "WAITING_GOAL") and not self._waypoints_ready:
+        if (msg.data in ("LOCALIZED", "WAITING_GOAL")
+                and not self._waypoints_ready
+                and self.mission_state == MissionState.EXPLORING):
             self._apply_bfs_filter_and_start()
             return
 
@@ -198,9 +215,27 @@ class ConeMissionManager(Node):
             return
 
         if self.mission_state == MissionState.PURSUING_CONE:
-            self.get_logger().info("Cono alcanzado — mision completa.")
+            # Ignorar GOAL_REACHED que llego menos de 2s despues de publicar
+            # el goal al cono: es casi seguro el GOAL_REACHED del waypoint
+            # de exploracion anterior que llego tarde.
+            if (self._cone_goal_publish_time is not None and
+                    time.time() - self._cone_goal_publish_time < 2.0):
+                self.get_logger().warn(
+                    "GOAL_REACHED ignorado: llego muy rapido tras detectar cono "
+                    "(probablemente era el waypoint anterior)."
+                )
+                return
+            duration = (time.time() - self._pursuit_start_time
+                        if self._pursuit_start_time else 0.0)
+            self.get_logger().info(f"Cono alcanzado — mision completa. Duracion: {duration:.1f}s")
+            if self._pending_row is not None:
+                self._write_csv_row(self._pending_row, outcome="DONE",
+                                    pursuit_duration_sec=duration)
+                self._pending_row = None
+            self._log_fsm_transition("PURSUING_CONE", "DONE", "GOAL_REACHED")
             self.mission_state = MissionState.DONE
             self._pursuit_start_time = None
+            self._cone_goal_publish_time = None
             return
 
         if self.mission_state == MissionState.EXPLORING:
@@ -260,8 +295,10 @@ class ConeMissionManager(Node):
             f"Interrumpiendo exploracion — persiguiendo cono en ({target_x:.2f},{target_y:.2f})."
         )
 
+        self._log_fsm_transition("EXPLORING", "PURSUING_CONE", "CONE_DETECTED")
         self.mission_state = MissionState.PURSUING_CONE
         self._pursuit_start_time = time.time()
+        self._cone_goal_publish_time = time.time()
         self._pursuit_cone_goal = (target_x, target_y)
         self.publish_goal(target_x, target_y, yaw=None)
         self._log_detection(raw_x, raw_y, target_x, target_y)
@@ -358,10 +395,17 @@ class ConeMissionManager(Node):
             cx, cy = self._pursuit_cone_goal
             dist_to_cone = math.hypot(rx - cx, ry - cy)
 
+        duration = time.time() - self._pursuit_start_time
+
         if dist_to_cone <= self._cone_arrival_radius_m:
             self.get_logger().info(
-                f"Timeout pero robot a {dist_to_cone:.2f}m del cono — considerando mision completa."
+                f"Timeout pero robot a {dist_to_cone:.2f}m del cono — mision completa."
             )
+            if self._pending_row is not None:
+                self._write_csv_row(self._pending_row, outcome="DONE_NEAR_TIMEOUT",
+                                    pursuit_duration_sec=duration)
+                self._pending_row = None
+            self._log_fsm_transition("PURSUING_CONE", "DONE", "TIMEOUT_NEAR")
             self.mission_state = MissionState.DONE
             self._pursuit_start_time = None
             self._pursuit_cone_goal = None
@@ -370,10 +414,20 @@ class ConeMissionManager(Node):
                 f"Timeout de {self._pursuit_timeout_sec:.0f}s persiguiendo cono "
                 f"(dist={dist_to_cone:.2f}m) — volviendo a explorar."
             )
+            if self._pending_row is not None:
+                self._write_csv_row(self._pending_row, outcome="TIMEOUT",
+                                    pursuit_duration_sec=duration)
+                self._pending_row = None
+            self._log_fsm_transition("PURSUING_CONE", "EXPLORING", "TIMEOUT_FAR")
             self.mission_state = MissionState.EXPLORING
             self._pursuit_start_time = None
             self._pursuit_cone_goal = None
             self.advance_exploration()
+
+    def _log_fsm_transition(self, from_state, to_state, trigger):
+        ts = time.time()
+        self._fsm_log.write(f"{ts:.3f},{from_state},{to_state},{trigger}\n")
+        self._fsm_log.flush()
 
     def _log_detection(self, cone_x, cone_y, goal_x, goal_y):
         ts = time.time()
@@ -395,44 +449,55 @@ class ConeMissionManager(Node):
             "bearing_deg": bearing,
             "goal_x": goal_x,
             "goal_y": goal_y,
+            "path_found": False,
+            "path_length_m": 0.0,
+            "num_waypoints": 0,
         }
 
     def plan_callback(self, msg):
         if self._pending_row is None or len(msg.poses) == 0:
             return
+        if self._pending_row.get("path_found"):
+            return  # ya tenemos info del primer plan, no pisar con replanes
         length = 0.0
         for i in range(1, len(msg.poses)):
             dx = msg.poses[i].pose.position.x - msg.poses[i - 1].pose.position.x
             dy = msg.poses[i].pose.position.y - msg.poses[i - 1].pose.position.y
             length += math.hypot(dx, dy)
-        self._write_csv_row(self._pending_row, path_found=True,
-                            path_length_m=length, num_waypoints=len(msg.poses))
-        self._pending_row = None
+        self._pending_row["path_found"] = True
+        self._pending_row["path_length_m"] = length
+        self._pending_row["num_waypoints"] = len(msg.poses)
 
     def _csv_timeout_check(self):
+        # Solo escribe si el path planner no respondio en tiempo — la mision
+        # no llego a arrancar. Si el path se encontro, la fila se escribe
+        # cuando la mision concluye (DONE o timeout de pursuit).
         if self._pending_row is None:
+            return
+        if self._pending_row.get("path_found"):
             return
         elapsed = time.time() - self._pending_row["timestamp"]
         if elapsed > self._path_timeout_sec:
-            self._write_csv_row(self._pending_row, path_found=False,
-                                path_length_m=0.0, num_waypoints=0)
+            self._write_csv_row(self._pending_row, outcome="NO_PATH",
+                                pursuit_duration_sec=elapsed)
             self._pending_row = None
 
-    def _write_csv_row(self, row, path_found, path_length_m=0.0, num_waypoints=0):
+    def _write_csv_row(self, row, outcome, pursuit_duration_sec=0.0):
         self._csv.write(
             f"{row['timestamp']:.3f},"
             f"{row['cone_x']:.4f},{row['cone_y']:.4f},"
             f"{row['distance_m']:.4f},{row['bearing_deg']:.2f},"
             f"{row['goal_x']:.4f},{row['goal_y']:.4f},"
-            f"{'True' if path_found else 'False'},"
-            f"{path_length_m:.4f},{num_waypoints}\n"
+            f"{'True' if row.get('path_found') else 'False'},"
+            f"{row.get('path_length_m', 0.0):.4f},{row.get('num_waypoints', 0)},"
+            f"{outcome},{pursuit_duration_sec:.1f}\n"
         )
         self._csv.flush()
         self.get_logger().info(
             f"CSV: cono=({row['cone_x']:.2f},{row['cone_y']:.2f}) "
             f"dist={row['distance_m']:.2f}m bearing={row['bearing_deg']:.1f}deg "
-            f"goal=({row['goal_x']:.2f},{row['goal_y']:.2f}) "
-            f"path_found={path_found} length={path_length_m:.2f}m waypoints={num_waypoints}"
+            f"path={row.get('path_length_m', 0.0):.2f}m "
+            f"outcome={outcome} duracion={pursuit_duration_sec:.1f}s"
         )
 
     # ------------------------------------------------------------------
@@ -614,6 +679,7 @@ def main(args=None):
         pass
 
     node._csv.close()
+    node._fsm_log.close()
     node.destroy_node()
     rclpy.shutdown()
 
