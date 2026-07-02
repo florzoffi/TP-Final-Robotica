@@ -1,1 +1,2 @@
 timestamp,cone_x,cone_y,distance_m,bearing_deg,goal_x,goal_y,path_found,path_length_m,num_waypoints,mission_outcome,pursuit_duration_sec
+1782963933.926,10.8536,14.6537,1.8215,29.28,11.0150,14.6350,True,1.7928,3,DONE_NEAR_TIMEOUT,91.9

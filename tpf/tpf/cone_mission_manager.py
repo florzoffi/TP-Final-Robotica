@@ -8,7 +8,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from geometry_msgs.msg import PoseStamped, PointStamped
 from nav_msgs.msg import OccupancyGrid, Path
 
@@ -68,21 +68,52 @@ class ConeMissionManager(Node):
         # 1.5 m es un buen equilibrio: cubre bien un laberinto tipico sin
         # generar demasiados waypoints redundantes en areas abiertas.
         self.declare_parameter("grid_spacing_m", 1.5)
+        # Radio aproximado de deteccion visual de un cono (camara). Se usa
+        # para modelar cuanta area "ya fue vista" al pasar por un waypoint,
+        # de forma que el orden de exploracion priorice cubrir zonas nuevas
+        # del laberinto en lugar de solo minimizar distancia recorrida.
+        # Un poco mayor que grid_spacing_m para que las areas de cobertura
+        # de waypoints vecinos se solapen y el greedy pueda cortar temprano
+        # cuando ya no queda area nueva por cubrir.
+        self.declare_parameter("coverage_radius_m", 2.0)
+        # Radio para considerar que una nueva deteccion es "el mismo cono"
+        # que uno ya descartado en un intento previo (timeout o sin ruta).
+        self.declare_parameter("discard_radius_m", 0.6)
 
         raw_waypoints = self.get_parameter("exploration_waypoints").value
         self.waypoints = parse_waypoints(raw_waypoints)
         self.snap_radius_cells = self.get_parameter("snap_radius_cells").value
         self.grid_spacing_m = self.get_parameter("grid_spacing_m").value
+        self.coverage_radius_m = self.get_parameter("coverage_radius_m").value
+        self.discard_radius_m = self.get_parameter("discard_radius_m").value
 
         self.mission_state = MissionState.EXPLORING
         self.waypoint_index = 0
         self.current_pose = None
 
         self._pursuit_start_time = None
-        self._pursuit_timeout_sec = 12000.0
+        # 90s alcanza para que Theta*/path_follower resuelvan un tramo del
+        # laberinto con margen por esquives, pero corta rapido si el robot
+        # esta realmente trabado o el cono resulta inalcanzable en la
+        # practica (antes eran 12000s: el robot podia quedar persiguiendo un
+        # cono trabado durante toda la ventana de laboratorio).
+        self._pursuit_timeout_sec = 90.0
         self._pursuit_cone_goal = None   # (x, y) del goal del cono actual
         self._cone_arrival_radius_m = 0.5
         self._cone_goal_publish_time = None  # momento en que se publico el goal al cono
+
+        # Conos cuya persecucion fallo (timeout o sin ruta) en esta corrida.
+        # Guarda la coordenada CRUDA de deteccion (no la snapeada), asi una
+        # nueva deteccion del mismo cono real -aunque el snap de BFS de por
+        # resultado una celda libre distinta- se reconoce como "ya intentado"
+        # y no se vuelve a perseguir en bucle.
+        self._discarded_cone_positions = []
+
+        # Si la camara detecta un cono nuevo mientras ya se esta persiguiendo
+        # otro, se guarda aca (coordenada cruda) en vez de descartarse. Al
+        # concluir la persecucion actual (DONE, timeout o sin ruta) se intenta
+        # perseguir este candidato antes de retomar la exploracion ciega.
+        self._pending_cone_candidate = None
 
         # Estado del generador automatico de waypoints
         self._raw_grid_cells = []   # candidatos del grid (sin filtrar)
@@ -140,6 +171,19 @@ class ConeMissionManager(Node):
             10,
         )
 
+        # Senal explicita de path_planner: "este goal es inalcanzable" (a
+        # diferencia de simplemente no haber llegado /plan todavia). Antes
+        # de esto, un intento en curso y un fallo real se veian identicos
+        # desde aca (silencio), y solo se podian distinguir adivinando con
+        # un timeout — lo que hacia descartar conos por darse por vencido
+        # demasiado pronto en vez de por una falla real.
+        self.plan_failed_sub = self.create_subscription(
+            Bool,
+            "/plan_failed",
+            self.plan_failed_callback,
+            10,
+        )
+
         self.goal_pub = self.create_publisher(PoseStamped, "/goal_pose", 10)
 
         # ---------------- CSV de detecciones ----------------
@@ -157,15 +201,26 @@ class ConeMissionManager(Node):
         # _pending_row se crea al detectar el cono y se escribe cuando la mision concluye.
         # path_found/path_length_m/num_waypoints se rellenan cuando llega el primer /plan.
         self._pending_row = None
-        self._path_timeout_sec = 4.0
+        # Red de seguridad, no el mecanismo principal: el caso normal de
+        # "goal inalcanzable" se resuelve casi al instante via /plan_failed
+        # (plan_failed_callback). Esto solo cubre que path_planner no
+        # conteste nada en absoluto (nodo caido, mensaje perdido). 8s le da
+        # margen a Theta* corriendo dos veces por intento (dinamico +
+        # estatico) sobre hardware real antes de discutir a ciegas.
+        self._path_timeout_sec = 8.0
         self.create_timer(0.5, self._csv_timeout_check)
         self.create_timer(2.0, self._check_pursuit_timeout)
 
         # ---------------- log de transiciones de la FSM ----------------
+        # Registra tanto las transiciones de la mision (EXPLORING/
+        # PURSUING_CONE/DONE) como las de navigation_manager (PLANNING/
+        # FOLLOWING_PATH/AVOIDING_OBSTACLE/...) recibidas por /navigation_state,
+        # para tener una sola linea de tiempo util al analizar fallos.
         fsm_log_path = "src/TP-Final-Robotica/tpf/mission_fsm_log.csv"
         self._fsm_log = open(fsm_log_path, "w")
-        self._fsm_log.write("timestamp,from_state,to_state,trigger\n")
+        self._fsm_log.write("timestamp,source,from_state,to_state,trigger\n")
         self._fsm_log.flush()
+        self._last_nav_state = None
 
         self.get_logger().info(f"Cone mission manager iniciado. CSV: {csv_path}")
 
@@ -203,6 +258,15 @@ class ConeMissionManager(Node):
 
     # ------------------------------------------------------------------
     def nav_state_callback(self, msg):
+        # /navigation_state se publica a 5Hz aunque no haya cambiado; solo
+        # registrar transiciones reales (igual que hace navigation_manager
+        # por consola) para no inundar el CSV con lineas repetidas.
+        if msg.data != self._last_nav_state:
+            self._log_fsm_transition(
+                self._last_nav_state or "NONE", msg.data, "NAV_UPDATE", source="NAVIGATION"
+            )
+            self._last_nav_state = msg.data
+
         # Cuando el FSM tiene pose inicial y espera un goal, es el momento
         # de aplicar el filtro BFS (ya hay current_pose disponible).
         if (msg.data in ("LOCALIZED", "WAITING_GOAL")
@@ -236,6 +300,7 @@ class ConeMissionManager(Node):
             self.mission_state = MissionState.DONE
             self._pursuit_start_time = None
             self._cone_goal_publish_time = None
+            self._start_pending_pursuit_or(self._stop_at_current_pose)
             return
 
         if self.mission_state == MissionState.EXPLORING:
@@ -264,17 +329,24 @@ class ConeMissionManager(Node):
 
     # ------------------------------------------------------------------
     def cone_callback(self, msg):
-        if self.mission_state != MissionState.EXPLORING:
-            # Ya estamos persiguiendo un cono o la mision termino — ignorar
-            # detecciones adicionales (multi-cono queda fuera de alcance).
-            return
-
         if not self.map_received:
             self.get_logger().warn("Deteccion de cono recibida pero todavia no hay /map.")
             return
 
         raw_x = msg.point.x
         raw_y = msg.point.y
+
+        if self._is_discarded_cone(raw_x, raw_y):
+            self.get_logger().info(
+                f"Deteccion en ({raw_x:.2f},{raw_y:.2f}) coincide con un cono ya "
+                f"descartado en un intento previo — ignorando para no reprocesarlo."
+            )
+            return
+
+        if self.mission_state != MissionState.EXPLORING:
+            if self.mission_state == MissionState.PURSUING_CONE:
+                self._remember_pending_cone(raw_x, raw_y)
+            return
 
         target = self.validate_and_snap(raw_x, raw_y)
         if target is None:
@@ -294,14 +366,78 @@ class ConeMissionManager(Node):
         self.get_logger().info(
             f"Interrumpiendo exploracion — persiguiendo cono en ({target_x:.2f},{target_y:.2f})."
         )
+        self._pursue_cone(raw_x, raw_y, target_x, target_y)
 
-        self._log_fsm_transition("EXPLORING", "PURSUING_CONE", "CONE_DETECTED")
+    def _remember_pending_cone(self, x, y):
+        if self._pursuit_cone_goal is not None:
+            cx, cy = self._pursuit_cone_goal
+            if math.hypot(x - cx, y - cy) <= self.discard_radius_m:
+                return  # es el mismo cono que ya estamos persiguiendo
+        if self._pending_cone_candidate is not None:
+            px, py = self._pending_cone_candidate
+            if math.hypot(x - px, y - py) <= self.discard_radius_m:
+                return  # ya esta guardado
+        self._pending_cone_candidate = (x, y)
+        self.get_logger().info(
+            f"Cono nuevo visto en ({x:.2f},{y:.2f}) mientras se persigue otro — "
+            f"guardado como candidato pendiente."
+        )
+
+    def _pursue_cone(self, raw_x, raw_y, target_x, target_y):
+        from_state = self.mission_state.value
+        self._log_fsm_transition(from_state, "PURSUING_CONE", "CONE_DETECTED")
         self.mission_state = MissionState.PURSUING_CONE
         self._pursuit_start_time = time.time()
         self._cone_goal_publish_time = time.time()
         self._pursuit_cone_goal = (target_x, target_y)
         self.publish_goal(target_x, target_y, yaw=None)
         self._log_detection(raw_x, raw_y, target_x, target_y)
+
+    def _stop_at_current_pose(self):
+        """
+        El goal del cono es su coordenada exacta, y el cono es un obstaculo
+        fisico real: navigation_manager nunca puede satisfacer su tolerancia
+        de posicion (0.12 m) contra el, asi que sin esto quedaria en un
+        loop infinito PLANNING/FOLLOWING_PATH/AVOIDING_OBSTACLE (visto en
+        mission_fsm_log.csv, 580+s de oscilacion tras un DONE).
+
+        Al terminar la mision (sin cono pendiente) publicamos un goal en la
+        pose actual del robot: navigation_manager lo da por satisfecho de
+        inmediato y frena solo, sin que este nodo tenga que tocar /cmd_vel.
+        """
+        if self.current_pose is None:
+            return
+        x = self.current_pose.pose.position.x
+        y = self.current_pose.pose.position.y
+        q = self.current_pose.pose.orientation
+        yaw = math.atan2(2.0 * (q.w * q.z), 1.0 - 2.0 * (q.z ** 2))
+        self.get_logger().info(
+            f"Mision DONE — fijando goal en la pose actual ({x:.2f},{y:.2f}) "
+            f"para que navigation_manager frene en vez de seguir "
+            f"reintentando contra el cono."
+        )
+        self.publish_goal(x, y, yaw)
+
+    def _start_pending_pursuit_or(self, fallback):
+        """
+        Si hay un cono pendiente guardado (visto mientras se perseguia otro),
+        intenta perseguirlo ahora. Si no hay pendiente, o resulta invalido,
+        ejecuta 'fallback' (retomar exploracion, o no hacer nada si la mision
+        ya estaba DONE).
+        """
+        if self._pending_cone_candidate is not None:
+            raw_x, raw_y = self._pending_cone_candidate
+            self._pending_cone_candidate = None
+            if not self._is_discarded_cone(raw_x, raw_y):
+                target = self.validate_and_snap(raw_x, raw_y)
+                if target is not None:
+                    self.get_logger().info(
+                        f"Retomando cono pendiente detectado durante la "
+                        f"persecucion anterior: ({raw_x:.2f},{raw_y:.2f})."
+                    )
+                    self._pursue_cone(raw_x, raw_y, *target)
+                    return
+        fallback()
 
     # ------------------------------------------------------------------
     # Generador automatico de waypoints de exploracion
@@ -339,15 +475,16 @@ class ConeMissionManager(Node):
         reachable = self._bfs_reachable(start_cell)
 
         filtered = [c for c in self._raw_grid_cells if c in reachable]
-        ordered = self._greedy_order(start_cell, filtered)
+        ordered = self._greedy_coverage_order(start_cell, filtered)
 
         self.waypoints = [
             (self.map_to_world(r, c)[0], self.map_to_world(r, c)[1], 0.0)
             for r, c in ordered
         ]
         self.get_logger().info(
-            f"Waypoints de exploracion: {len(self.waypoints)} accesibles "
-            f"de {len(self._raw_grid_cells)} candidatos."
+            f"Waypoints de exploracion: {len(self.waypoints)} "
+            f"(de {len(filtered)} accesibles / {len(self._raw_grid_cells)} candidatos) "
+            f"tras podar por cobertura de vision."
         )
         self.start_exploration()
 
@@ -364,16 +501,97 @@ class ConeMissionManager(Node):
                     queue.append(nb)
         return visited
 
-    def _greedy_order(self, start, cells):
+    def _greedy_coverage_order(self, start, cells):
+        """
+        Ordena los waypoints con un greedy tipo set-cover: en cada paso elige
+        el candidato que maximiza area NUEVA cubierta (dentro de
+        coverage_radius_m y con linea de vista libre, para no "ver" a traves
+        de paredes) por unidad de distancia, en vez de solo el mas cercano.
+
+        Una vez que ningun candidato restante aporta cobertura nueva (todo lo
+        que queda ya cae dentro del area vista por waypoints previos), corta
+        el recorrido ahi: agregar esos puntos no mejora la busqueda visual de
+        conos, solo suma distancia recorrida.
+        """
+        if not cells:
+            return []
+
+        radius_cells = self.coverage_radius_m / self.map_resolution
         remaining = list(cells)
+        covered = set()
         ordered = []
         current = start
+
         while remaining:
-            nearest = min(remaining, key=lambda c: math.hypot(c[0] - current[0], c[1] - current[1]))
-            ordered.append(nearest)
-            remaining.remove(nearest)
-            current = nearest
+            best_cell = None
+            best_gain = -1
+            best_dist = None
+            for c in remaining:
+                dist = math.hypot(c[0] - current[0], c[1] - current[1])
+                gain = self._coverage_gain(c, remaining, covered, radius_cells)
+                if gain > best_gain or (gain == best_gain and (best_dist is None or dist < best_dist)):
+                    best_gain = gain
+                    best_dist = dist
+                    best_cell = c
+
+            if best_gain <= 0 and ordered:
+                break
+
+            ordered.append(best_cell)
+            remaining.remove(best_cell)
+            covered.add(best_cell)
+            for c in remaining:
+                if c not in covered \
+                        and math.hypot(c[0] - best_cell[0], c[1] - best_cell[1]) <= radius_cells \
+                        and self._line_of_sight(best_cell, c):
+                    covered.add(c)
+            current = best_cell
+
         return ordered
+
+    def _coverage_gain(self, center, remaining, covered, radius_cells):
+        gain = 0
+        for c in remaining:
+            if c in covered:
+                continue
+            if math.hypot(c[0] - center[0], c[1] - center[1]) > radius_cells:
+                continue
+            if not self._line_of_sight(center, c):
+                continue
+            gain += 1
+        return gain
+
+    def _line_of_sight(self, cell_a, cell_b):
+        """
+        Bresenham entre dos celdas de grilla sobre el occupancy grid crudo
+        (no el inflado: el inflado es para margen de navegacion, no para
+        vision). Si alguna celda intermedia esta ocupada o es desconocida,
+        se considera que no hay linea de vista directa entre ambas.
+        """
+        r0, c0 = cell_a
+        r1, c1 = cell_b
+        dr = abs(r1 - r0)
+        dc = abs(c1 - c0)
+        sr = 1 if r0 < r1 else -1
+        sc = 1 if c0 < c1 else -1
+        err = dr - dc
+        r, c = r0, c0
+
+        while (r, c) != (r1, c1):
+            e2 = 2 * err
+            if e2 > -dc:
+                err -= dc
+                r += sr
+            if e2 < dr:
+                err += dr
+                c += sc
+            if (r, c) == (r1, c1):
+                break
+            idx = r * self.map_width + c
+            occ = self.occupancy_data[idx]
+            if occ > 50 or occ == -1:
+                return False
+        return True
 
     # ------------------------------------------------------------------
     # CSV logging
@@ -409,6 +627,7 @@ class ConeMissionManager(Node):
             self.mission_state = MissionState.DONE
             self._pursuit_start_time = None
             self._pursuit_cone_goal = None
+            self._start_pending_pursuit_or(self._stop_at_current_pose)
         else:
             self.get_logger().warn(
                 f"Timeout de {self._pursuit_timeout_sec:.0f}s persiguiendo cono "
@@ -417,16 +636,35 @@ class ConeMissionManager(Node):
             if self._pending_row is not None:
                 self._write_csv_row(self._pending_row, outcome="TIMEOUT",
                                     pursuit_duration_sec=duration)
-                self._pending_row = None
-            self._log_fsm_transition("PURSUING_CONE", "EXPLORING", "TIMEOUT_FAR")
-            self.mission_state = MissionState.EXPLORING
-            self._pursuit_start_time = None
-            self._pursuit_cone_goal = None
-            self.advance_exploration()
+            self._abandon_cone_pursuit("TIMEOUT_FAR")
+            self._pending_row = None
+            self._start_pending_pursuit_or(self.advance_exploration)
 
-    def _log_fsm_transition(self, from_state, to_state, trigger):
+    def _is_discarded_cone(self, x, y):
+        return any(
+            math.hypot(x - dx, y - dy) <= self.discard_radius_m
+            for dx, dy in self._discarded_cone_positions
+        )
+
+    def _abandon_cone_pursuit(self, trigger):
+        """
+        Corta la persecucion del cono actual y vuelve a EXPLORING, guardando
+        su coordenada cruda como descartada para no volver a perseguirlo si
+        se re-detecta mientras se sigue explorando el laberinto.
+        """
+        if self._pending_row is not None:
+            self._discarded_cone_positions.append(
+                (self._pending_row["cone_x"], self._pending_row["cone_y"])
+            )
+        self._log_fsm_transition("PURSUING_CONE", "EXPLORING", trigger)
+        self.mission_state = MissionState.EXPLORING
+        self._pursuit_start_time = None
+        self._pursuit_cone_goal = None
+        self._cone_goal_publish_time = None
+
+    def _log_fsm_transition(self, from_state, to_state, trigger, source="MISSION"):
         ts = time.time()
-        self._fsm_log.write(f"{ts:.3f},{from_state},{to_state},{trigger}\n")
+        self._fsm_log.write(f"{ts:.3f},{source},{from_state},{to_state},{trigger}\n")
         self._fsm_log.flush()
 
     def _log_detection(self, cone_x, cone_y, goal_x, goal_y):
@@ -468,19 +706,37 @@ class ConeMissionManager(Node):
         self._pending_row["path_length_m"] = length
         self._pending_row["num_waypoints"] = len(msg.poses)
 
+    def plan_failed_callback(self, msg):
+        # Senal explicita de path_planner: no espera al timeout, corta ya.
+        if self._pending_row is None or self._pending_row.get("path_found"):
+            return
+        elapsed = time.time() - self._pending_row["timestamp"]
+        self._declare_no_path(elapsed)
+
     def _csv_timeout_check(self):
-        # Solo escribe si el path planner no respondio en tiempo — la mision
-        # no llego a arrancar. Si el path se encontro, la fila se escribe
-        # cuando la mision concluye (DONE o timeout de pursuit).
+        # Red de seguridad si path_planner nunca contesta ni con exito ni
+        # con /plan_failed (nodo caido, mensaje perdido, etc.) — el caso
+        # normal de "goal inalcanzable" ya lo resuelve plan_failed_callback
+        # casi al instante, sin esperar este timeout mas largo.
         if self._pending_row is None:
             return
         if self._pending_row.get("path_found"):
             return
         elapsed = time.time() - self._pending_row["timestamp"]
         if elapsed > self._path_timeout_sec:
-            self._write_csv_row(self._pending_row, outcome="NO_PATH",
-                                pursuit_duration_sec=elapsed)
-            self._pending_row = None
+            self._declare_no_path(elapsed)
+
+    def _declare_no_path(self, elapsed):
+        self._write_csv_row(self._pending_row, outcome="NO_PATH",
+                            pursuit_duration_sec=elapsed)
+        # Sin ruta encontrada, no tiene sentido seguir esperando en
+        # PURSUING_CONE (antes se quedaba trabado hasta el timeout de
+        # persecucion, mucho mas largo). Volver a explorar de una y
+        # marcar el cono como descartado.
+        if self.mission_state == MissionState.PURSUING_CONE:
+            self._abandon_cone_pursuit("NO_PATH")
+            self._start_pending_pursuit_or(self.advance_exploration)
+        self._pending_row = None
 
     def _write_csv_row(self, row, outcome, pursuit_duration_sec=0.0):
         self._csv.write(
