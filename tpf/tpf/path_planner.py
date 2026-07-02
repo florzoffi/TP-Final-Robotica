@@ -47,7 +47,9 @@ class PathPlanner(Node):
         # pedazo distinto del mismo cluster, y el camino elegido cambia de
         # lado constantemente.
         self.dynamic_obstacle_points = {}
-        self.DYNAMIC_DECAY_SEC = 10.0
+        self.DYNAMIC_DECAY_SEC = 30.0
+        self.consecutive_static_fallbacks = 0
+        self.MAX_CONSECUTIVE_FALLBACKS = 3
 
         map_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -262,8 +264,9 @@ class PathPlanner(Node):
         if self.current_pose is None or self.inflated_grid is None:
             return
 
-        MAX_DYNAMIC_RANGE = 3.5  # m — casi el rango completo del LIDAR del TB3
-
+        MAX_DYNAMIC_RANGE = 1.0  # m — casi el rango completo del LIDAR del TB3
+        MAX_DYNAMIC_BEARING = math.radians(45)
+        
         robot_x   = self.current_pose.pose.position.x
         robot_y   = self.current_pose.pose.position.y
         robot_yaw = self.yaw_from_quaternion(self.current_pose.pose.orientation)
@@ -275,6 +278,8 @@ class PathPlanner(Node):
                 continue
 
             angle     = scan.angle_min + i * scan.angle_increment
+            if abs(angle) > MAX_DYNAMIC_BEARING:
+                continue
             world_ang = robot_yaw + angle
             obs_x     = robot_x + r * math.cos(world_ang)
             obs_y     = robot_y + r * math.sin(world_ang)
@@ -321,7 +326,8 @@ class PathPlanner(Node):
             if age_sec > self.DYNAMIC_DECAY_SEC:
                 expired.append((obs_row, obs_col))
                 continue
-
+            
+            
             for dr in range(-inf_cells, inf_cells + 1):
                 for dc in range(-inf_cells, inf_cells + 1):
                     if math.sqrt(dr * dr + dc * dc) * self.map_resolution <= self.dynamic_inflation_radius_m:
@@ -401,18 +407,28 @@ class PathPlanner(Node):
         self.inflated_grid = static_grid  # restaurar siempre
 
         if path_cells is None:
-            # La grilla dinámica (mapa + LIDAR) no tiene camino — puede pasar
-            # si los obstáculos detectados rodean por completo al robot.
-            # Reintentamos solo con el mapa estático para no quedar
-            # atascados en un loop de "no encontro camino".
+            self.consecutive_static_fallbacks += 1
+
             self.get_logger().warn(
-                "No se encontro camino con obstaculos dinamicos — reintentando solo con mapa estatico."
+                "No se encontro camino con obstaculos dinamicos — "
+                "reintentando solo con mapa estatico."
             )
+
+            if self.consecutive_static_fallbacks >= self.MAX_CONSECUTIVE_FALLBACKS:
+                self.get_logger().error(
+                    f"Fallback estatico repetido {self.consecutive_static_fallbacks} veces. "
+                    "Probable obstaculo dinamico bloqueando el paso o memoria dinamica deformando el mapa."
+                )
+
             path_cells = self.theta_star(start_cell, goal_cell)
 
             if path_cells is None:
-                self.get_logger().warn("No se encontro camino ni siquiera con el mapa estatico.")
+                self.get_logger().warn(
+                    "No se encontro camino ni siquiera con el mapa estatico."
+                )
                 return
+        else:
+            self.consecutive_static_fallbacks = 0
 
         self.publish_path(path_cells)
 

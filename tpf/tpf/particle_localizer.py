@@ -74,7 +74,7 @@ class ParticleLocalizer(Node):
 
         # Parametros del modelo de observacion con LIDAR
         self.laser_step = 10 #uso 1 d cada 10 rayos del lidar
-        self.sensor_sigma = 0.20 #tolerancia contra paraedes, mas chico mas estricto
+        self.sensor_sigma = 0.30 #tolerancia contra paraedes, mas chico mas estricto
 
         self.max_likelihood_dist = 1.0 # Distancia maxima que nos importa hasta la pared mas cercana
 
@@ -86,7 +86,7 @@ class ParticleLocalizer(Node):
         # ArUco ruidosa sobreescriba la correccion del LIDAR.
         self.landmark_sigma_dist = 0.40    # m  — tolerancia en distancia al landmark
         self.landmark_sigma_bearing = 0.30 # rad — tolerancia en bearing al landmark
-        self.landmark_scale = 0.15         # fraccion de peso relativa al LIDAR
+        self.landmark_scale = 0.30        # fraccion de peso relativa al LIDAR
 
         # Ultima observacion de ArUco recibida: lista de (tag_id, dist, bearing)
         self.latest_landmark_obs = []
@@ -112,10 +112,13 @@ class ParticleLocalizer(Node):
         self.map_origin_y = None
         self.occupancy_data = None
         self.distance_field = None
-        
-        self.landmark_sigma_dist = 0.40
-        self.landmark_sigma_bearing = 0.30
-        self.landmark_scale = 0.15
+
+        # Maximo tiempo que aceptamos una observacion de landmarks como
+        # "vigente". Si /aruco_observations deja de llegar (nodo caido,
+        # topico cortado), despues de este tiempo dejamos de usar la
+        # ultima lectura recibida y caemos a LIDAR-only en vez de seguir
+        # aplicando una correccion basada en una posicion vieja del robot.
+        self.landmark_max_age_sec = 0.5
 
         self.declare_parameter("landmark_csv", "")
 
@@ -226,7 +229,11 @@ class ParticleLocalizer(Node):
             for p in msg.poses
             if int(p.position.x) in self.landmarks
         ]
-        self.latest_landmark_stamp = msg.header.stamp
+        # Usamos el reloj propio del nodo (no el stamp del mensaje) para que
+        # el chequeo de "vigencia" en update_weights_with_scan sea comparable
+        # con self.get_clock().now() sin depender de que ambos nodos tengan
+        # el reloj sincronizado de la misma manera.
+        self.latest_landmark_stamp = self.get_clock().now()
 
     def map_callback(self, msg):
         """
@@ -468,9 +475,19 @@ class ParticleLocalizer(Node):
         mean_y = sum(ys) / len(ys)
         std_x = math.sqrt(sum((v - mean_x) ** 2 for v in xs) / len(xs))
         std_y = math.sqrt(sum((v - mean_y) ** 2 for v in ys) / len(ys))
-        std_yaw = math.sqrt(sum((v - mean_yaw) ** 2
-                               for v in yaws
-                               for mean_yaw in [sum(yaws) / len(yaws)]) / len(yaws))
+
+        # std circular: promediamos con seno/coseno (igual que estimate_pose)
+        # y medimos la dispersion como el error angular normalizado de cada
+        # particula respecto de esa media. La version lineal anterior
+        # explotaba cerca de +-180 grados (ej. particulas en 179 y -179 grados
+        # estan practicamente juntas, pero un promedio lineal las trata como
+        # opuestas), dando falsos positivos de "no converge".
+        mean_yaw = math.atan2(
+            sum(math.sin(v) for v in yaws), sum(math.cos(v) for v in yaws)
+        )
+        std_yaw = math.sqrt(
+            sum(normalize_angle(v - mean_yaw) ** 2 for v in yaws) / len(yaws)
+        )
 
         self.get_logger().info(
             f"DIAG localizer: N_eff={n_eff:.0f}/{self.num_particles} | "
@@ -496,11 +513,28 @@ class ParticleLocalizer(Node):
         # DIAG: para la primera particula, loguear detalle rayo a rayo
         diag_first = True
 
+        # Vigencia de la ultima observacion de landmarks: si paso demasiado
+        # tiempo desde que llego (o nunca llego ninguna), no la usamos.
+        # Evita seguir aplicando una correccion de landmarks "vieja" si
+        # virtual_landmark_sensor se cae o el topico se corta.
+        landmark_obs = []
+        if self.latest_landmark_obs and self.latest_landmark_stamp is not None:
+            age_sec = (
+                self.get_clock().now() - self.latest_landmark_stamp
+            ).nanoseconds / 1e9
+            if age_sec <= self.landmark_max_age_sec:
+                landmark_obs = self.latest_landmark_obs
+            else:
+                self.get_logger().warn(
+                    f"Landmarks descartados por vejez ({age_sec:.2f}s > "
+                    f"{self.landmark_max_age_sec:.2f}s) — usando solo LIDAR.",
+                    throttle_duration_sec=2.0,
+                )
+
         for p_idx, (x, y, yaw) in enumerate(self.particles):
             log_w = 0.0
             valid_beams = 0
             beams_out_of_map = 0
-            sample_dists = []   # para el diag de la primera particula
 
             for i in range(0, len(scan.ranges), self.laser_step):
                 r = scan.ranges[i]
@@ -508,7 +542,7 @@ class ParticleLocalizer(Node):
                 if math.isinf(r) or math.isnan(r):
                     continue
 
-                if r < scan.range_min or r > scan.range_max:
+                if r < 0.25:
                     continue
 
                 angle = scan.angle_min + i * scan.angle_increment
@@ -525,26 +559,18 @@ class ParticleLocalizer(Node):
                 log_w += -0.5 * (dist / self.sensor_sigma) ** 2
                 valid_beams += 1
 
-            
-            if diag_first:
-                self.get_logger().info(
-                    f"DIAG scan p0: particula=({x:.2f},{y:.2f},{math.degrees(yaw):.1f}deg) | "
-                    f"rayos_validos={valid_beams} de {len(scan.ranges)//self.laser_step} | "
-                    f"rayos_fuera_mapa={beams_out_of_map} | "
-                    f"sample_hits(hit_x,hit_y,dist_pared)={sample_dists}",
-                    throttle_duration_sec=2.0,
-                )
-                diag_first = False
-
             if valid_beams == 0:
                 log_w = -100.0
             else:
                 log_w = log_w / valid_beams
 
-            if self.latest_landmark_obs:
+            lidar_only_log_w = log_w  # guardamos para el diag, antes de sumar landmarks
+            lm_contribution = 0.0
+
+            if landmark_obs:
                 lm_log = 0.0
 
-                for tag_id, obs_dist, obs_bearing in self.latest_landmark_obs:
+                for tag_id, obs_dist, obs_bearing in landmark_obs:
                     lx, ly = self.landmarks[tag_id]
 
                     pred_dist = math.sqrt((lx - x) ** 2 + (ly - y) ** 2)
@@ -558,8 +584,28 @@ class ParticleLocalizer(Node):
                         -0.5 * (delta_bearing / self.landmark_sigma_bearing) ** 2
                     )
 
-                log_w += self.landmark_scale * lm_log
+                # Promediamos por landmark detectado (en vez de sumar) para que
+                # el peso relativo de "landmark_scale" contra el LIDAR no
+                # dependa de cuantos ArUco entren en cuadro al mismo tiempo.
+                lm_log /= len(landmark_obs)
+                lm_contribution = self.landmark_scale * lm_log
+                log_w += lm_contribution
 
+            if diag_first:
+                # DIAG: si landmarks_usados>0 pero lm_contribution es ~0, algo
+                # no esta bien (ID no matchea, sigma mal calibrado, etc.) —
+                # deberia haber una diferencia clara entre lidar_only y log_w.
+                self.get_logger().info(
+                    f"DIAG scan p0: particula=({x:.2f},{y:.2f},{math.degrees(yaw):.1f}deg) | "
+                    f"rayos_validos={valid_beams} de {len(scan.ranges)//self.laser_step} | "
+                    f"rayos_fuera_mapa={beams_out_of_map} | "
+                    f"landmarks_usados={len(landmark_obs)} | "
+                    f"log_w_lidar={lidar_only_log_w:.4f} | "
+                    f"aporte_landmarks={lm_contribution:.4f} | "
+                    f"log_w_total={log_w:.4f}",
+                    throttle_duration_sec=2.0,
+                )
+                diag_first = False
 
             log_weights.append(log_w)
 

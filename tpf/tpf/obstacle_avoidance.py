@@ -40,8 +40,9 @@ class ObstacleAvoidance(Node):
             self.use_intensity_filter = False
 
         # Detección: obstáculo en el cono frontal ±window samples a < min_distance m
-        self.min_distance = 0.40   # m
-        self.window       = 20     # ≈ ±20°
+        self.min_distance = 0.30
+        self.emergency_distance = 0.20
+        self.window_deg = 12
 
         self.obstacle_detected = False
 
@@ -66,21 +67,42 @@ class ObstacleAvoidance(Node):
 
     # ------------------------------------------------------------------
     def scan_callback(self, msg):
-        n           = len(msg.ranges)
-        front_index = int(n * self.front_index_offset / 360)
-        valid       = []
+        n = len(msg.ranges)
+        if n == 0:
+            self.obstacle_detected = False
+            return
 
-        for i in range(front_index - self.window, front_index + self.window + 1):
+        front_index = int(n * self.front_index_offset / 360)
+
+        # ventana angular real, convertida a cantidad de índices según el scan
+        samples_per_degree = n / 360.0
+        window_indices = max(1, int(self.window_deg * samples_per_degree))
+
+        valid = []
+
+        for i in range(front_index - window_indices, front_index + window_indices + 1):
             idx = i % n
-            r   = msg.ranges[idx]
+            r = msg.ranges[idx]
+
             if self.use_intensity_filter:
                 if len(msg.intensities) <= idx or msg.intensities[idx] == 0.0:
                     continue
+
             if not math.isinf(r) and not math.isnan(r):
                 valid.append(r)
 
-        self.obstacle_detected = bool(valid) and min(valid) <= self.min_distance
+        if not valid:
+            self.obstacle_detected = False
+            return
 
+        min_r = min(valid)
+
+        # emergencia: siempre detecta si está MUY cerca
+        if min_r <= self.emergency_distance:
+            self.obstacle_detected = True
+            return
+
+        self.obstacle_detected = min_r <= self.min_distance
     # ------------------------------------------------------------------
     def control_loop(self):
         obstacle_msg = Bool()

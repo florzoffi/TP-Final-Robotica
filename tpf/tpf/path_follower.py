@@ -4,8 +4,8 @@ import rclpy
 from rclpy.node import Node
 
 from geometry_msgs.msg import PoseStamped, Twist
-from nav_msgs.msg import Path, Odometry
-from std_msgs.msg import String
+from nav_msgs.msg import Path
+from std_msgs.msg import String, Bool
 
 def yaw_from_quaternion(q):
     """
@@ -57,11 +57,12 @@ class PathFollower(Node):
         self.goal_reached = False
 
         self.nav_state = ""
+        self.obstacle_active = False
 
         self.pose_sub = self.create_subscription(
-            Odometry,
-            "/odom",
-            self.odom_callback,
+            PoseStamped,
+            "/estimated_pose",
+            self.pose_callback,
             10,
         )
 
@@ -84,6 +85,13 @@ class PathFollower(Node):
             "/cmd_vel",
             10,
         )
+        
+        self.obstacle_sub = self.create_subscription(
+            Bool,
+            "/obstacle_detected",
+            self.obstacle_callback,
+            10,
+        )
 
         self.control_timer = self.create_timer(
             0.1,
@@ -95,14 +103,14 @@ class PathFollower(Node):
     def nav_state_callback(self, msg):
         self.nav_state = msg.data
 
-    def odom_callback(self, msg):
-        self.current_pose = PoseStamped()
-        self.current_pose.header = msg.header
-        self.current_pose.pose = msg.pose.pose
+    def pose_callback(self, msg):
+        self.current_pose = msg
         
-        
-    
-        
+    def obstacle_callback(self, msg):
+        self.obstacle_active = msg.data
+        if self.obstacle_active:
+            self.stop_robot()
+            
     def path_callback(self, msg):
         """
         Guarda el camino recibido desde el planner.
@@ -158,8 +166,9 @@ class PathFollower(Node):
         Loop de control que corre cada 0.1 s.
         Decide que velocidad publicar en /cmd_vel.
         """
-        if self.nav_state == "AVOIDING_OBSTACLE":
+        if self.obstacle_active or self.nav_state == "AVOIDING_OBSTACLE":
             # Obstacle avoidance node owns cmd_vel right now.
+            self.stop_robot()
             return
 
         if self.current_pose is None:

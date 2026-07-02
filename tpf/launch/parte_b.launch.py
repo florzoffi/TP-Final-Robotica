@@ -154,6 +154,8 @@ def generate_launch_description():
     particle_localizer = Node(
         package="tpf",
         executable="particle_localizer",
+        name="particle_localizer",
+        output="screen",
         parameters=[
             {"use_sim_time": True},
             {"mode": "simulation"},
@@ -196,12 +198,6 @@ def generate_launch_description():
         ],
     )
     
-    landmark_csv = os.path.join(
-        pkg_tpf,
-        "config",
-        "virtual_landmarks.csv",
-    )
-
     virtual_landmark_sensor = Node(
         package="tpf",
         executable="virtual_landmark_sensor",
