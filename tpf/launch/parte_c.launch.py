@@ -9,13 +9,13 @@ from ament_index_python.packages import get_package_share_directory
 
 def launch_setup(context, *args, **kwargs):
     """
-    Arma los remappings de topicos del robot (scan/odom/cmd_vel) en base al
-    argumento 'robot_namespace', resuelto recien aca (en tiempo de launch)
-    para poder construir los nombres de topico con un simple f-string en vez
-    de encadenar substitutions. Asi el dia del laboratorio, si el robot no
-    publica bajo /tb4_0/..., alcanza con
-    'ros2 launch tpf parte_c.launch.py robot_namespace:=""' (o el namespace
-    que corresponda) sin tocar el codigo.
+    Arma los remappings de topicos del robot (scan/odom/cmd_vel/camara) en
+    base al argumento 'robot_namespace', resuelto recien aca (en tiempo de
+    launch) para poder construir los nombres de topico con un simple
+    f-string en vez de encadenar substitutions. Asi el dia del laboratorio,
+    si el robot no publica bajo /tb4_0/..., alcanza con
+    'ros2 launch tpf parte_c.launch.py robot_namespace:=tb4_1' (o el
+    namespace que corresponda) sin tocar el codigo.
     """
     pkg_tpf = get_package_share_directory("tpf")
 
@@ -29,6 +29,8 @@ def launch_setup(context, *args, **kwargs):
     scan_topic = f"{prefix}/scan"
     odom_topic = f"{prefix}/odom"
     cmd_vel_topic = f"{prefix}/cmd_vel"
+    camera_image_topic = f"{prefix}/oakd/rgb/preview/image_raw"
+    camera_info_topic = f"{prefix}/oakd/rgb/preview/camera_info"
 
     # TF temporal map -> odom (igual que parte_b.launch.py; particle_localizer
     # no publica esta TF, solo el topico /estimated_pose).
@@ -129,6 +131,10 @@ def launch_setup(context, *args, **kwargs):
         ],
     )
 
+    # aruco_detector.py y cone_detector.py tienen hardcodeado
+    # "/tb4_0/oakd/rgb/preview/..." adentro del codigo (no usan un parametro
+    # de namespace). Se remapea desde ese nombre fijo hacia el topico
+    # calculado arriba; con robot_namespace="tb4_0" (default) es un no-op.
     aruco_detector = Node(
         package="tpf",
         executable="aruco_detector",
@@ -138,6 +144,9 @@ def launch_setup(context, *args, **kwargs):
             {"use_sim_time": use_sim_time},
             {"save_csv": False},
         ],
+        remappings=[
+            ("/tb4_0/oakd/rgb/preview/image_raw", camera_image_topic),
+        ],
     )
 
     cone_detector = Node(
@@ -146,6 +155,10 @@ def launch_setup(context, *args, **kwargs):
         name="cone_detector",
         output="screen",
         parameters=[{"use_sim_time": use_sim_time}],
+        remappings=[
+            ("/tb4_0/oakd/rgb/preview/image_raw", camera_image_topic),
+            ("/tb4_0/oakd/rgb/preview/camera_info", camera_info_topic),
+        ],
     )
 
     cone_mission_manager = Node(

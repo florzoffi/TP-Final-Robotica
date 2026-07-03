@@ -14,6 +14,7 @@ setup(
         ('share/tpf/launch', glob('launch/*.launch.py')),
         ('share/tpf/rviz', glob('rviz/*.rviz')),
         ('share/tpf/maps', glob('maps/*')),
+        ('share/tpf/maps2', glob('maps2/*')),
         ('share/tpf/config', glob('config/*.csv')),
     ],
     install_requires=['setuptools'],
