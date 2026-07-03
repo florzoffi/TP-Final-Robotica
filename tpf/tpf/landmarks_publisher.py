@@ -4,7 +4,7 @@ from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
 
 
-LANDMARKS_CSV = "src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes.csv"
+LANDMARKS_CSV = "src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes2.csv"
 
 
 class LandmarksPublisher(Node):

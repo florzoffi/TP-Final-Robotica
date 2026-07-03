@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-SCANS_CSV = "src/TP-Final-Robotica/tpf/scans.csv"
-POSES_CSV = "src/TP-Final-Robotica/tpf/poses_optimized_keyframes.csv"
+SCANS_CSV = "src/TP-Final-Robotica/tpf/scans2.csv"
+POSES_CSV = "src/TP-Final-Robotica/tpf/poses_optimized_keyframes2.csv"
 
 RESOLUTION = 0.05
 MAP_SIZE = 30.0

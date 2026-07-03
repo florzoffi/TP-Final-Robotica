@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
 
 
-ODOM_CSV = "src/TP-Final-Robotica/tpf/odom.csv"
-ARUCO_CSV = "src/TP-Final-Robotica/tpf/aruco_observations.csv"
+ODOM_CSV = "src/TP-Final-Robotica/tpf/odom2.csv"
+ARUCO_CSV = "src/TP-Final-Robotica/tpf/aruco_observations2.csv"
 
 START_POSE = 0
 MAX_POSES = None
@@ -26,7 +26,7 @@ W_ODOM_TH = 40.0
 W_ARUCO_DIST = 4
 W_ARUCO_BEARING = 2
 
-MIN_ARUCO_OBS_PER_FACTOR = 2
+MIN_ARUCO_OBS_PER_FACTOR = 1
 
 MAX_FACTOR_DIST_STD = 0.08
 MAX_FACTOR_BEAR_STD = np.deg2rad(8)
@@ -459,7 +459,7 @@ def main():
 
     poses_df = pd.DataFrame(poses_opt, columns=["x", "y", "theta"])
     poses_df["time"] = odom_sub["time"].values
-    poses_df.to_csv("src/TP-Final-Robotica/tpf/poses_optimized_keyframes.csv", index=False)
+    poses_df.to_csv("src/TP-Final-Robotica/tpf/poses_optimized_keyframes2.csv", index=False)
 
     landmarks_rows = []
 
@@ -476,7 +476,7 @@ def main():
     for tag, idx in tag_to_idx.items():
         lx, ly = landmarks_opt[idx]
 
-        if not (-10 <= lx <= 5 and -5 <= ly <= 6):
+        if not (-10 <= lx <= 10 and -10 <= ly <= 10):
             print(f"Landmark {tag} descartado por posición rara: ({lx:.2f}, {ly:.2f})")
             continue
 
@@ -487,10 +487,10 @@ def main():
         })
 
     landmarks_df = pd.DataFrame(landmarks_rows)
-    landmarks_df.to_csv("src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes.csv", index=False)
+    landmarks_df.to_csv("src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes2.csv", index=False)
 
-    print("Guardado src/TP-Final-Robotica/tpf/poses_optimized_keyframes.csv")
-    print("Guardado src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes.csv")
+    print("Guardado src/TP-Final-Robotica/tpf/poses_optimized_keyframes2.csv")
+    print("Guardado src/TP-Final-Robotica/tpf/landmarks_optimized_keyframes2.csv")
 
     print("Optimización terminada")
     print(f"Costo final: {result.cost:.3f}")

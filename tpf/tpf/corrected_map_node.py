@@ -27,7 +27,7 @@ MIN_OCC_HITS = 4
 MIN_FREE_HITS = 2
 LIDAR_ANGLE_OFFSET = np.pi / 2  
 
-POSES_CSV = "src/TP-Final-Robotica/tpf/poses_optimized_keyframes.csv"
+POSES_CSV = "src/TP-Final-Robotica/tpf/poses_optimized_keyframes2.csv"
 
 
 def normalize_angle(a):
@@ -222,7 +222,7 @@ class CorrectedMapNode(Node):
 
     def save_map_files(self, grid):
 
-        maps_dir = "src/TP-Final-Robotica/tpf/maps"
+        maps_dir = "src/TP-Final-Robotica/tpf/maps2"
         os.makedirs(maps_dir, exist_ok=True)
 
         pgm = np.full((GRID_N, GRID_N), 205, dtype=np.uint8)
@@ -236,11 +236,11 @@ class CorrectedMapNode(Node):
         map_img[grid == 100] = 0       # ocupado
         map_img[grid == -1] = 205      # desconocido
 
-        Image.fromarray(np.flipud(map_img)).save(f"{maps_dir}/map.png")
-        Image.fromarray(np.flipud(pgm)).save(f"{maps_dir}/map.pgm")
+        Image.fromarray(np.flipud(map_img)).save(f"{maps_dir}/map2.png")
+        Image.fromarray(np.flipud(pgm)).save(f"{maps_dir}/map2.pgm")
 
         yaml_text = (
-            f"image: map.pgm\n"
+            f"image: map2.pgm\n"
             f"mode: trinary\n"
             f"resolution: {RESOLUTION}\n"
             f"origin: [{-ORIGIN_X}, {-ORIGIN_Y}, 0.0]\n"
@@ -249,7 +249,7 @@ class CorrectedMapNode(Node):
             f"free_thresh: 0.25\n"
         )
 
-        with open(f"{maps_dir}/map.yaml", "w") as f:
+        with open(f"{maps_dir}/map2.yaml", "w") as f:
             f.write(yaml_text)
 
     def publish_map(self, header):
