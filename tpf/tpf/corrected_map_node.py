@@ -6,10 +6,8 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import OccupancyGrid, Path
 from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import Header
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster
-import matplotlib.pyplot as plt
 import os
 from PIL import Image
 
@@ -230,7 +228,6 @@ class CorrectedMapNode(Node):
         pgm[grid == 100] = 0       # ocupado
         pgm[grid == -1] = 205      # desconocido
 
-        # Imagen en escala de grises
         map_img = np.full((GRID_N, GRID_N), 205, dtype=np.uint8)
         map_img[grid == 0] = 254       # libre
         map_img[grid == 100] = 0       # ocupado

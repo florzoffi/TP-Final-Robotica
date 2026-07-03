@@ -26,8 +26,6 @@ class ArucoDetector(Node):
             10
         )
 
-        # Publica observaciones en tiempo real para el filtro de particulas.
-        # Cada Pose codifica: position.x=tag_id, position.y=distance, position.z=bearing.
         self.obs_pub = self.create_publisher(PoseArray, "/aruco_observations", 10)
         self.declare_parameter("save_csv", True)
         self.save_csv = self.get_parameter("save_csv").value
@@ -138,8 +136,6 @@ class ArucoDetector(Node):
                     f"Tag {tag_id} | dist={distance:.2f}m | bearing={bearing:.2f}rad"
                 )
 
-                # Codificamos la observacion en un Pose estandar:
-                # position.x = tag_id, position.y = distance, position.z = bearing
                 p = Pose()
                 p.position.x = float(tag_id)
                 p.position.y = float(distance)

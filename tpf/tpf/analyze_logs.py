@@ -10,7 +10,7 @@ def main():
     aruco = pd.read_csv(ARUCO_CSV)
     odom = pd.read_csv(ODOM_CSV)
 
-    print("\n=== RESUMEN ARUCO ===")
+    print("\nRESUMEN ARUCO")
     print(f"Cantidad total de observaciones: {len(aruco)}")
 
     print("\nTags detectados:")
@@ -19,7 +19,7 @@ def main():
     print("\nCantidad de observaciones por tag:")
     print(aruco["tag_id"].value_counts().sort_index())
 
-    print("\n=== RESUMEN ODOM ===")
+    print("\nRESUMEN ODOM")
     print(f"Cantidad total de poses: {len(odom)}")
 
     t0 = odom["time"].iloc[0]
@@ -36,7 +36,6 @@ def main():
     print("\nPose final:")
     print(odom.iloc[-1])
 
-    # Trayectoria odométrica
     plt.figure()
     plt.plot(odom["x"], odom["y"])
     plt.xlabel("x [m]")
@@ -46,7 +45,6 @@ def main():
     plt.grid(True)
     plt.show()
 
-    # Histograma de observaciones por tag
     plt.figure()
     aruco["tag_id"].value_counts().sort_index().plot(kind="bar")
     plt.xlabel("ID ArUco")

@@ -179,7 +179,7 @@ def main():
     print(f"Pose-tag agrupados: {len(observations_by_key)}")
 
 
-    # Diagnóstico: ¿qué tags se re-observan en tramos lejanos (loop closure)?
+    # Diagnóstico
     tag_pose_indices = {}
     for (pose_idx, tag_id) in observations_by_key.keys():
         tag_pose_indices.setdefault(tag_id, []).append(pose_idx)
@@ -322,7 +322,7 @@ def main():
         verbose=2
     )
 
-    # --- Segunda pasada: eliminar mediciones ArUco malas por residuo ---
+    # Segunda pasada: eliminar mediciones ArUco malas por residuo 
     poses_tmp = result.x[: n_poses * 3].reshape((n_poses, 3))
     landmarks_tmp = result.x[n_poses * 3:].reshape((len(tag_to_idx), 2))
 
@@ -370,7 +370,7 @@ def main():
         verbose=2
     )
 
-    # --- Diagnostico de residuos por factor ---
+    # Diagnostico de residuos por factor
 
     x_opt_diag = result.x
     poses_opt_diag = x_opt_diag[: n_poses * 3].reshape((n_poses, 3))
@@ -412,8 +412,6 @@ def main():
         print(f"pose {pose_idx}, tag {tag}: error_dist={err_dist:.3f} m, "
               f"error_bearing={np.degrees(err_bear):.1f} deg")
 
-    # Tambien: identificar tramos de poses con pocas o ninguna observacion
-    # ArUco cercana (zonas "ciegas" donde la odometria no se corrige).
     poses_with_obs = sorted(set(f["pose"] for f in landmark_factors))
     print("\n--- Gaps mas grandes sin observaciones ArUco (indices de pose) ---")
     gaps = []
