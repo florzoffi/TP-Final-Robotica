@@ -1,0 +1,17 @@
+[console_scripts]
+analyze_logs = tpf.analyze_logs:main
+aruco_detector = tpf.aruco_detector:main
+cone_detector = tpf.cone_detector:main
+cone_mission_manager = tpf.cone_mission_manager:main
+corrected_map_node = tpf.corrected_map_node:main
+graph_slam = tpf.graph_slam:main
+landmarks_publisher = tpf.landmarks_publisher:main
+navigation_manager = tpf.navigation_manager:main
+obstacle_avoidance = tpf.obstacle_avoidance:main
+odom_logger = tpf.odom_logger:main
+particle_localizer = tpf.particle_localizer:main
+path_follower = tpf.path_follower:main
+path_planner = tpf.path_planner:main
+scan_logger = tpf.scan_logger:main
+virtual_landmark_sensor = tpf.virtual_landmark_sensor:main
+

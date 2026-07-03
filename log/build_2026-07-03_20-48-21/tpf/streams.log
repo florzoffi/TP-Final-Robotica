@@ -1,0 +1,50 @@
+[1.259s] Invoking command in '/home/isidro_valeriano/ws/src/TP-Final-Robotica/tpf': PYTHONPATH=/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../build/tpf build --build-base /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build install --record /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log --single-version-externally-managed install_data
+[1.578s] running egg_info
+[1.578s] writing ../build/tpf/tpf.egg-info/PKG-INFO
+[1.579s] writing dependency_links to ../build/tpf/tpf.egg-info/dependency_links.txt
+[1.579s] writing entry points to ../build/tpf/tpf.egg-info/entry_points.txt
+[1.579s] writing requirements to ../build/tpf/tpf.egg-info/requires.txt
+[1.579s] writing top-level names to ../build/tpf/tpf.egg-info/top_level.txt
+[1.582s] reading manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'
+[1.632s] writing manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'
+[1.632s] running build
+[1.633s] running build_py
+[1.633s] copying tpf/obstacle_avoidance.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+[1.633s] copying tpf/virtual_landmark_sensor.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+[1.634s] copying tpf/path_follower.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+[1.634s] copying tpf/particle_localizer.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+[1.634s] copying tpf/path_planner.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+[1.635s] running install
+[1.636s] running install_lib
+[1.637s] copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/obstacle_avoidance.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+[1.637s] copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/virtual_landmark_sensor.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+[1.638s] copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/path_follower.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+[1.638s] copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/particle_localizer.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+[1.638s] copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/path_planner.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+[1.639s] byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/obstacle_avoidance.py to obstacle_avoidance.cpython-310.pyc
+[1.641s] byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/virtual_landmark_sensor.py to virtual_landmark_sensor.cpython-310.pyc
+[1.644s] byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/path_follower.py to path_follower.cpython-310.pyc
+[1.646s] byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/particle_localizer.py to particle_localizer.cpython-310.pyc
+[1.650s] byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/path_planner.py to path_planner.cpython-310.pyc
+[1.655s] running install_data
+[1.655s] running install_egg_info
+[1.658s] removing '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf-0.0.0-py3.10.egg-info' (and everything under it)
+[1.658s] Copying ../build/tpf/tpf.egg-info to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf-0.0.0-py3.10.egg-info
+[1.660s] running install_scripts
+[1.679s] Installing analyze_logs script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.680s] Installing aruco_detector script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.680s] Installing cone_detector script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.680s] Installing cone_mission_manager script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.680s] Installing corrected_map_node script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.681s] Installing graph_slam script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.681s] Installing landmarks_publisher script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.681s] Installing navigation_manager script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.681s] Installing obstacle_avoidance script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.681s] Installing odom_logger script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.682s] Installing particle_localizer script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.682s] Installing path_follower script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.682s] Installing path_planner script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.683s] Installing scan_logger script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.683s] Installing virtual_landmark_sensor script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+[1.684s] writing list of installed files to '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log'
+[1.723s] Invoked command in '/home/isidro_valeriano/ws/src/TP-Final-Robotica/tpf' returned '0': PYTHONPATH=/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../build/tpf build --build-base /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build install --record /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log --single-version-externally-managed install_data

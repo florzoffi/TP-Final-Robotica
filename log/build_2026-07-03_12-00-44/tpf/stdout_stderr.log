@@ -1,0 +1,120 @@
+running egg_info
+creating ../build/tpf/tpf.egg-info
+writing ../build/tpf/tpf.egg-info/PKG-INFO
+writing dependency_links to ../build/tpf/tpf.egg-info/dependency_links.txt
+writing entry points to ../build/tpf/tpf.egg-info/entry_points.txt
+writing requirements to ../build/tpf/tpf.egg-info/requires.txt
+writing top-level names to ../build/tpf/tpf.egg-info/top_level.txt
+writing manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'
+reading manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'
+writing manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/navigation_manager.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/corrected_map_node.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/obstacle_avoidance.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/odom_logger.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/graph_slam_v0.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/analyze_logs.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/virtual_landmark_sensor.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/graph_slam_v1.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/cone_detector.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/path_follower.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/graph_slam.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/debug.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/landmarks_publisher.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/cone_mission_manager.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/particle_localizer.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/scan_logger.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/path_planner.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/__init__.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+copying tpf/aruco_detector.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf
+running install
+running install_lib
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/navigation_manager.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/corrected_map_node.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/obstacle_avoidance.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/odom_logger.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/graph_slam_v0.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/analyze_logs.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/virtual_landmark_sensor.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/graph_slam_v1.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/cone_detector.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/path_follower.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/graph_slam.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/debug.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/landmarks_publisher.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/cone_mission_manager.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/particle_localizer.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/scan_logger.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/path_planner.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/__init__.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/aruco_detector.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/navigation_manager.py to navigation_manager.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/corrected_map_node.py to corrected_map_node.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/obstacle_avoidance.py to obstacle_avoidance.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/odom_logger.py to odom_logger.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/graph_slam_v0.py to graph_slam_v0.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/analyze_logs.py to analyze_logs.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/virtual_landmark_sensor.py to virtual_landmark_sensor.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/graph_slam_v1.py to graph_slam_v1.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/cone_detector.py to cone_detector.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/path_follower.py to path_follower.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/graph_slam.py to graph_slam.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/debug.py to debug.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/landmarks_publisher.py to landmarks_publisher.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/cone_mission_manager.py to cone_mission_manager.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/particle_localizer.py to particle_localizer.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/scan_logger.py to scan_logger.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/path_planner.py to path_planner.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/aruco_detector.py to aruco_detector.cpython-310.pyc
+running install_data
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/ament_index
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/ament_index/resource_index
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/ament_index/resource_index/packages
+copying resource/tpf -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/ament_index/resource_index/packages
+copying package.xml -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/launch
+copying launch/parte_b.launch.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/launch
+copying launch/parte_c.launch.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/launch
+copying launch/tp_final.launch.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/launch
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/rviz
+copying rviz/parte_b.rviz -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/rviz
+copying rviz/tpf.rviz -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/rviz
+copying rviz/parte_c.rviz -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/rviz
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps
+copying maps/map_real.yaml -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps
+copying maps/map.yaml -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps
+copying maps/map.pgm -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps
+copying maps/map_real.pgm -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps
+copying maps/map_real.png -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps2
+copying maps2/map2.yaml -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps2
+copying maps2/map2.png -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps2
+copying maps2/map2.pgm -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/maps2
+creating /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/config
+copying config/virtual_landmarks.csv -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/config
+running install_egg_info
+Copying ../build/tpf/tpf.egg-info to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf-0.0.0-py3.10.egg-info
+running install_scripts
+Installing analyze_logs script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing aruco_detector script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing cone_detector script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing cone_mission_manager script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing corrected_map_node script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing graph_slam script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing landmarks_publisher script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing navigation_manager script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing obstacle_avoidance script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing odom_logger script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing particle_localizer script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing path_follower script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing path_planner script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing scan_logger script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing virtual_landmark_sensor script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+writing list of installed files to '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log'

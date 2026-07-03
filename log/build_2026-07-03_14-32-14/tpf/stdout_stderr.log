@@ -1,0 +1,33 @@
+running egg_info
+writing ../build/tpf/tpf.egg-info/PKG-INFO
+writing dependency_links to ../build/tpf/tpf.egg-info/dependency_links.txt
+writing entry points to ../build/tpf/tpf.egg-info/entry_points.txt
+writing requirements to ../build/tpf/tpf.egg-info/requires.txt
+writing top-level names to ../build/tpf/tpf.egg-info/top_level.txt
+reading manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'
+writing manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'
+running build
+running build_py
+running install
+running install_lib
+running install_data
+running install_egg_info
+removing '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf-0.0.0-py3.10.egg-info' (and everything under it)
+Copying ../build/tpf/tpf.egg-info to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf-0.0.0-py3.10.egg-info
+running install_scripts
+Installing analyze_logs script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing aruco_detector script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing cone_detector script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing cone_mission_manager script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing corrected_map_node script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing graph_slam script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing landmarks_publisher script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing navigation_manager script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing obstacle_avoidance script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing odom_logger script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing particle_localizer script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing path_follower script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing path_planner script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing scan_logger script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+Installing virtual_landmark_sensor script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf
+writing list of installed files to '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log'

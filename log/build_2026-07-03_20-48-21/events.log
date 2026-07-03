@@ -1,0 +1,72 @@
+[0.000000] (-) TimerEvent: {}
+[0.000626] (tpf) JobQueued: {'identifier': 'tpf', 'dependencies': OrderedDict()}
+[0.001925] (tpf) JobStarted: {'identifier': 'tpf'}
+[0.098722] (-) TimerEvent: {}
+[0.199253] (-) TimerEvent: {}
+[0.299630] (-) TimerEvent: {}
+[0.400006] (-) TimerEvent: {}
+[0.500523] (-) TimerEvent: {}
+[0.601103] (-) TimerEvent: {}
+[0.701570] (-) TimerEvent: {}
+[0.801862] (-) TimerEvent: {}
+[0.902295] (-) TimerEvent: {}
+[1.002784] (-) TimerEvent: {}
+[1.103439] (-) TimerEvent: {}
+[1.203941] (-) TimerEvent: {}
+[1.258172] (tpf) Command: {'cmd': ['/usr/bin/python3', '-W', 'ignore:setup.py install is deprecated', '-W', 'ignore:easy_install command is deprecated', 'setup.py', 'egg_info', '--egg-base', '../build/tpf', 'build', '--build-base', '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build', 'install', '--record', '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log', '--single-version-externally-managed', 'install_data'], 'cwd': '/home/isidro_valeriano/ws/src/TP-Final-Robotica/tpf', 'env': {'LESSOPEN': '| /usr/bin/lesspipe %s', 'USER': 'isidro_valeriano', 'SHLVL': '1', 'LIBGL_ALWAYS_SOFTWARE': '1', 'LD_LIBRARY_PATH': '/home/isidro_valeriano/ws/install/custom_msgs/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib', 'WT_PROFILE_ID': '{51855cb2-8cce-5362-8f54-464b92b32386}', 'HOME': '/home/isidro_valeriano', 'OLDPWD': '/home/isidro_valeriano', 'ROS_PYTHON_VERSION': '3', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'WSL_DISTRO_NAME': 'Ubuntu', 'WAYLAND_DISPLAY': 'wayland-0', 'COLCON_PREFIX_PATH': '/home/isidro_valeriano/ws/install:/home/isidro_valeriano/install', 'ROS_DISTRO': 'humble', 'LOGNAME': 'isidro_valeriano', 'NAME': 'Isidro', 'WSL_INTEROP': '/run/WSL/3630_interop', 'PULSE_SERVER': 'unix:/mnt/wslg/PulseServer', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'TERM': 'xterm-256color', 'ROS_LOCALHOST_ONLY': '0', 'PATH': '/home/isidro_valeriano/.local/bin:/home/isidro_valeriano/ws/install/obstacle_avoider/bin:/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/java8path:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/Users/isiva/miniconda3/condabin:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/PuTTY/:/mnt/c/Program Files/Amazon/AWSCLIV2/:/mnt/c/Users/isiva/miniconda3:/mnt/c/Users/isiva/miniconda3/Library/mingw-w64/bin:/mnt/c/Users/isiva/miniconda3/Library/usr/bin:/mnt/c/Users/isiva/miniconda3/Library/bin:/mnt/c/Users/isiva/miniconda3/Scripts:/mnt/c/Users/isiva/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/isiva/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/isiva/miniconda3/condabin:/mnt/c/Users/isiva/AppData/Local/GitHubDesktop/bin:/mnt/c/Users/isiva/AppData/Local/Muse Hub/lib:/mnt/c/msys64/ucrt64/bin:/snap/bin', 'WT_SESSION': '9222a692-911d-4f50-8c7f-6c53eeb747cf', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'LANG': 'en_US.UTF-8', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:', 'AMENT_PREFIX_PATH': '/home/isidro_valeriano/ws/install/turtlebot3_custom_simulation:/home/isidro_valeriano/ws/install/tpf:/home/isidro_valeriano/ws/install/tp5:/home/isidro_valeriano/ws/install/tp4:/home/isidro_valeriano/ws/install/tp3:/home/isidro_valeriano/ws/install/tp2:/home/isidro_valeriano/ws/install/obstacle_avoider:/home/isidro_valeriano/ws/install/custom_msgs:/home/isidro_valeriano/ws/install/clase_3:/home/isidro_valeriano/ws/install/clase_2:/home/isidro_valeriano/install/tpf:/home/isidro_valeriano/install/tp5:/home/isidro_valeriano/install/tp4:/opt/ros/humble', 'SHELL': '/bin/bash', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'PWD': '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf', 'TURTLEBOT3_MODEL': 'burger', 'XDG_DATA_DIRS': '/usr/local/share:/usr/share:/var/lib/snapd/desktop', 'PYTHONPATH': '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages:/home/isidro_valeriano/ws/install/tpf/lib/python3.10/site-packages:/home/isidro_valeriano/ws/install/tp5/lib/python3.10/site-packages:/home/isidro_valeriano/ws/install/tp4/lib/python3.10/site-packages:/home/isidro_valeriano/ws/install/tp3/lib/python3.10/site-packages:/home/isidro_valeriano/ws/install/tp2/lib/python3.10/site-packages:/home/isidro_valeriano/ws/install/obstacle_avoider/lib/python3.10/site-packages:/home/isidro_valeriano/ws/install/custom_msgs/local/lib/python3.10/dist-packages:/home/isidro_valeriano/ws/install/clase_3/lib/python3.10/site-packages:/home/isidro_valeriano/ws/install/clase_2/lib/python3.10/site-packages:/home/isidro_valeriano/install/tpf/lib/python3.10/site-packages:/home/isidro_valeriano/install/tp5/lib/python3.10/site-packages:/home/isidro_valeriano/install/tp4/lib/python3.10/site-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages', 'COLCON': '1', 'WSL2_GUI_APPS_ENABLED': '1', 'HOSTTYPE': 'x86_64', 'CMAKE_PREFIX_PATH': '/home/isidro_valeriano/ws/install/turtlebot3_custom_simulation:/home/isidro_valeriano/ws/install/custom_msgs', 'WSLENV': 'WT_SESSION:WT_PROFILE_ID:'}, 'shell': False}
+[1.304291] (-) TimerEvent: {}
+[1.404697] (-) TimerEvent: {}
+[1.505073] (-) TimerEvent: {}
+[1.579578] (tpf) StdoutLine: {'line': b'running egg_info\n'}
+[1.580121] (tpf) StdoutLine: {'line': b'writing ../build/tpf/tpf.egg-info/PKG-INFO\n'}
+[1.580491] (tpf) StdoutLine: {'line': b'writing dependency_links to ../build/tpf/tpf.egg-info/dependency_links.txt\n'}
+[1.580843] (tpf) StdoutLine: {'line': b'writing entry points to ../build/tpf/tpf.egg-info/entry_points.txt\n'}
+[1.581051] (tpf) StdoutLine: {'line': b'writing requirements to ../build/tpf/tpf.egg-info/requires.txt\n'}
+[1.581176] (tpf) StdoutLine: {'line': b'writing top-level names to ../build/tpf/tpf.egg-info/top_level.txt\n'}
+[1.583950] (tpf) StdoutLine: {'line': b"reading manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'\n"}
+[1.605257] (-) TimerEvent: {}
+[1.633978] (tpf) StdoutLine: {'line': b"writing manifest file '../build/tpf/tpf.egg-info/SOURCES.txt'\n"}
+[1.634297] (tpf) StdoutLine: {'line': b'running build\n'}
+[1.634488] (tpf) StdoutLine: {'line': b'running build_py\n'}
+[1.634782] (tpf) StdoutLine: {'line': b'copying tpf/obstacle_avoidance.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf\n'}
+[1.635067] (tpf) StdoutLine: {'line': b'copying tpf/virtual_landmark_sensor.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf\n'}
+[1.635424] (tpf) StdoutLine: {'line': b'copying tpf/path_follower.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf\n'}
+[1.635829] (tpf) StdoutLine: {'line': b'copying tpf/particle_localizer.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf\n'}
+[1.636113] (tpf) StdoutLine: {'line': b'copying tpf/path_planner.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf\n'}
+[1.636999] (tpf) StdoutLine: {'line': b'running install\n'}
+[1.637493] (tpf) StdoutLine: {'line': b'running install_lib\n'}
+[1.638728] (tpf) StdoutLine: {'line': b'copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/obstacle_avoidance.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf\n'}
+[1.639159] (tpf) StdoutLine: {'line': b'copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/virtual_landmark_sensor.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf\n'}
+[1.639454] (tpf) StdoutLine: {'line': b'copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/path_follower.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf\n'}
+[1.639829] (tpf) StdoutLine: {'line': b'copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/particle_localizer.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf\n'}
+[1.640131] (tpf) StdoutLine: {'line': b'copying /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build/lib/tpf/path_planner.py -> /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf\n'}
+[1.641165] (tpf) StdoutLine: {'line': b'byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/obstacle_avoidance.py to obstacle_avoidance.cpython-310.pyc\n'}
+[1.642885] (tpf) StdoutLine: {'line': b'byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/virtual_landmark_sensor.py to virtual_landmark_sensor.cpython-310.pyc\n'}
+[1.645791] (tpf) StdoutLine: {'line': b'byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/path_follower.py to path_follower.cpython-310.pyc\n'}
+[1.647883] (tpf) StdoutLine: {'line': b'byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/particle_localizer.py to particle_localizer.cpython-310.pyc\n'}
+[1.652255] (tpf) StdoutLine: {'line': b'byte-compiling /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf/path_planner.py to path_planner.cpython-310.pyc\n'}
+[1.656530] (tpf) StdoutLine: {'line': b'running install_data\n'}
+[1.657164] (tpf) StdoutLine: {'line': b'running install_egg_info\n'}
+[1.659525] (tpf) StdoutLine: {'line': b"removing '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf-0.0.0-py3.10.egg-info' (and everything under it)\n"}
+[1.659858] (tpf) StdoutLine: {'line': b'Copying ../build/tpf/tpf.egg-info to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages/tpf-0.0.0-py3.10.egg-info\n'}
+[1.661485] (tpf) StdoutLine: {'line': b'running install_scripts\n'}
+[1.680727] (tpf) StdoutLine: {'line': b'Installing analyze_logs script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.681221] (tpf) StdoutLine: {'line': b'Installing aruco_detector script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.681622] (tpf) StdoutLine: {'line': b'Installing cone_detector script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.681943] (tpf) StdoutLine: {'line': b'Installing cone_mission_manager script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.682162] (tpf) StdoutLine: {'line': b'Installing corrected_map_node script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.682479] (tpf) StdoutLine: {'line': b'Installing graph_slam script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.682668] (tpf) StdoutLine: {'line': b'Installing landmarks_publisher script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.682776] (tpf) StdoutLine: {'line': b'Installing navigation_manager script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.682944] (tpf) StdoutLine: {'line': b'Installing obstacle_avoidance script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.683249] (tpf) StdoutLine: {'line': b'Installing odom_logger script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.683502] (tpf) StdoutLine: {'line': b'Installing particle_localizer script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.683890] (tpf) StdoutLine: {'line': b'Installing path_follower script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.684124] (tpf) StdoutLine: {'line': b'Installing path_planner script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.684488] (tpf) StdoutLine: {'line': b'Installing scan_logger script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.684634] (tpf) StdoutLine: {'line': b'Installing virtual_landmark_sensor script to /home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/tpf\n'}
+[1.685585] (tpf) StdoutLine: {'line': b"writing list of installed files to '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log'\n"}
+[1.705413] (-) TimerEvent: {}
+[1.724532] (tpf) CommandEnded: {'returncode': 0}
+[1.760726] (tpf) JobEnded: {'identifier': 'tpf', 'rc': 0}
+[1.762677] (-) EventReactorShutdown: {}

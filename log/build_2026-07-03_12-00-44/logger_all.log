@@ -1,0 +1,130 @@
+[1.284s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[1.284s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=8, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7dfef3f786a0>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7dfef3f78190>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7dfef3f78190>>)
+[2.289s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[2.289s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[2.289s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[2.289s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[2.289s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[2.289s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[2.290s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/isidro_valeriano/ws/src/TP-Final-Robotica'
+[2.290s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[2.290s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[2.290s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[2.290s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[2.291s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[2.291s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[2.291s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[2.291s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[2.291s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[2.449s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[2.449s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[2.450s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[2.450s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[2.450s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[2.450s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[2.450s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[2.451s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[2.451s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[2.451s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[2.452s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[2.452s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[2.452s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[2.453s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[2.454s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ignore', 'ignore_ament_install']
+[2.454s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore'
+[2.454s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore_ament_install'
+[2.454s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_pkg']
+[2.454s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_pkg'
+[2.454s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_meta']
+[2.455s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_meta'
+[2.455s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ros']
+[2.455s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ros'
+[2.455s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['cmake', 'python']
+[2.455s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'cmake'
+[2.455s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python'
+[2.455s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['python_setup_py']
+[2.455s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python_setup_py'
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extensions ['ignore', 'ignore_ament_install']
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extension 'ignore'
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extension 'ignore_ament_install'
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extensions ['colcon_pkg']
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extension 'colcon_pkg'
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extensions ['colcon_meta']
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extension 'colcon_meta'
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extensions ['ros']
+[2.456s] Level 1:colcon.colcon_core.package_identification:_identify(tpf) by extension 'ros'
+[2.470s] DEBUG:colcon.colcon_core.package_identification:Package 'tpf' with type 'ros.ament_python' and name 'tpf'
+[2.470s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[2.471s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[2.471s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[2.471s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[2.471s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[2.579s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[2.579s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[2.606s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 10 installed packages in /home/isidro_valeriano/ws/install
+[2.610s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 3 installed packages in /home/isidro_valeriano/install
+[2.619s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 378 installed packages in /opt/ros/humble
+[2.628s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[2.986s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'cmake_args' from command line to 'None'
+[2.986s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'cmake_target' from command line to 'None'
+[2.986s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[2.987s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'cmake_clean_cache' from command line to 'False'
+[2.987s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'cmake_clean_first' from command line to 'False'
+[2.987s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'cmake_force_configure' from command line to 'False'
+[2.987s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'ament_cmake_args' from command line to 'None'
+[2.987s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'catkin_cmake_args' from command line to 'None'
+[2.987s] Level 5:colcon.colcon_core.verb:set package 'tpf' build argument 'catkin_skip_building_tests' from command line to 'False'
+[2.987s] DEBUG:colcon.colcon_core.verb:Building package 'tpf' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf', 'merge_install': False, 'path': '/home/isidro_valeriano/ws/src/TP-Final-Robotica/tpf', 'symlink_install': False, 'test_result_base': None}
+[2.988s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[2.992s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[2.992s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/isidro_valeriano/ws/src/TP-Final-Robotica/tpf' with build type 'ament_python'
+[2.993s] Level 1:colcon.colcon_core.shell:create_environment_hook('tpf', 'ament_prefix_path')
+[3.028s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[3.028s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/hook/ament_prefix_path.ps1'
+[3.037s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/hook/ament_prefix_path.dsv'
+[3.043s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/hook/ament_prefix_path.sh'
+[3.046s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[3.047s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[3.746s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/isidro_valeriano/ws/src/TP-Final-Robotica/tpf'
+[3.747s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[3.747s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[4.965s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/isidro_valeriano/ws/src/TP-Final-Robotica/tpf': PYTHONPATH=/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../build/tpf build --build-base /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build install --record /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log --single-version-externally-managed install_data
+[5.610s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/isidro_valeriano/ws/src/TP-Final-Robotica/tpf' returned '0': PYTHONPATH=/home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../build/tpf build --build-base /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/build install --record /home/isidro_valeriano/ws/src/TP-Final-Robotica/build/tpf/install.log --single-version-externally-managed install_data
+[5.632s] Level 1:colcon.colcon_core.environment:checking '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf' for CMake module files
+[5.633s] Level 1:colcon.colcon_core.environment:checking '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf' for CMake config files
+[5.634s] Level 1:colcon.colcon_core.environment:checking '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib'
+[5.634s] Level 1:colcon.colcon_core.environment:checking '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/bin'
+[5.634s] Level 1:colcon.colcon_core.environment:checking '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/pkgconfig/tpf.pc'
+[5.635s] Level 1:colcon.colcon_core.environment:checking '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/lib/python3.10/site-packages'
+[5.635s] Level 1:colcon.colcon_core.shell:create_environment_hook('tpf', 'pythonpath')
+[5.635s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/hook/pythonpath.ps1'
+[5.636s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/hook/pythonpath.dsv'
+[5.637s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/hook/pythonpath.sh'
+[5.638s] Level 1:colcon.colcon_core.environment:checking '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/bin'
+[5.638s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(tpf)
+[5.638s] INFO:colcon.colcon_core.shell:Creating package script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/package.ps1'
+[5.640s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/package.dsv'
+[5.641s] INFO:colcon.colcon_core.shell:Creating package script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/package.sh'
+[5.642s] INFO:colcon.colcon_core.shell:Creating package script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/package.bash'
+[5.645s] INFO:colcon.colcon_core.shell:Creating package script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/tpf/package.zsh'
+[5.647s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/tpf/share/colcon-core/packages/tpf)
+[5.648s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[5.648s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[5.648s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[5.648s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[5.754s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[5.754s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[5.755s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[5.755s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[5.757s] DEBUG:colcon.colcon_notification.desktop_notification.notify2:Failed to initialize notify2: org.freedesktop.DBus.Error.FileNotFound: Failed to connect to socket /run/user/1000/bus: No such file or directory
+[5.757s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[5.758s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/local_setup.ps1'
+[5.761s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/_local_setup_util_ps1.py'
+[5.767s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/setup.ps1'
+[5.772s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/local_setup.sh'
+[5.774s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/_local_setup_util_sh.py'
+[5.775s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/setup.sh'
+[5.779s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/local_setup.bash'
+[5.780s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/setup.bash'
+[5.783s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/local_setup.zsh'
+[5.785s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/isidro_valeriano/ws/src/TP-Final-Robotica/install/setup.zsh'
