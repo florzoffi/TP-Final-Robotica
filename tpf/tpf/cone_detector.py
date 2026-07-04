@@ -36,8 +36,6 @@ class ConeDetector(Node):
         super().__init__("cone_detector")
 
         self.bridge = CvBridge()
-
-        # ---------------- parametros (tuneables sin recompilar) ----------------
         self.declare_parameter("hue_low_max", 10)
         self.declare_parameter("hue_high_min", 170)
         self.declare_parameter("sat_min", 120)
@@ -74,15 +72,11 @@ class ConeDetector(Node):
 
         self.add_on_set_parameters_callback(self.on_parameters_set)
 
-        # ---------------- estado de calibracion / pose ----------------
-        self.camera_matrix = None  # se completa con el primer /camera_info
-        self.current_pose = None
 
-        # ---------------- estado de debounce ----------------
-        # cada entrada: (x, y, stamp_sec)
+        self.camera_matrix = None  
+        self.current_pose = None
         self.recent_detections = deque(maxlen=20)
 
-        # ---------------- subscripciones ----------------
         qos_camera = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 
         self.image_sub = self.create_subscription(
@@ -106,7 +100,6 @@ class ConeDetector(Node):
             10,
         )
 
-        # ---------------- publicaciones ----------------
         self.cone_pub = self.create_publisher(PointStamped, "/cone_detection", 10)
 
         if self.debug_publish:
@@ -117,7 +110,6 @@ class ConeDetector(Node):
             "Cone detector iniciado. Esperando /camera_info para calibrar..."
         )
 
-    # ------------------------------------------------------------------
     def on_parameters_set(self, params):
         """
         Aplica en caliente los cambios hechos con "ros2 param set", para
@@ -129,7 +121,6 @@ class ConeDetector(Node):
                 setattr(self, param.name, param.value)
         return SetParametersResult(successful=True)
 
-    # ------------------------------------------------------------------
     def camera_info_callback(self, msg):
         if self.camera_matrix is not None:
             return
@@ -147,12 +138,7 @@ class ConeDetector(Node):
     def pose_callback(self, msg):
         self.current_pose = msg
 
-    # ------------------------------------------------------------------
     def image_callback(self, msg):
-        # La segmentacion y las imagenes de debug no dependen de calibracion
-        # ni de pose — se generan siempre, para poder tunear HSV/area/aspect
-        # ratio mirando /cone_detector/debug_image y /cone_detector/debug_mask
-        # en rviz aunque todavia no haya /initialpose ni /camera_info.
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
         mask = self.segment_red(frame)
 
@@ -201,7 +187,6 @@ class ConeDetector(Node):
             cv2.imshow("Cone detector", debug_frame)
             cv2.waitKey(1)
 
-    # ------------------------------------------------------------------
     def segment_red(self, frame):
         """
         Segmentacion HSV de rojo. El rojo cruza el limite 0/180 del canal H
@@ -219,13 +204,6 @@ class ConeDetector(Node):
         mask_b = cv2.inRange(hsv, lower_b, upper_b)
         mask = cv2.bitwise_or(mask_a, mask_b)
 
-        # OPEN (erode+dilate) saca ruido chico, pero tambien erosiona el
-        # cuerpo angosto/en punta de un cono lejano — con un kernel grande
-        # puede partirlo en fragmentos que individualmente no pasan los
-        # filtros de area/aspect-ratio (intermitencia que mejora con la
-        # distancia, justamente porque el cono ocupa mas pixeles). Por eso
-        # esta deshabilitado por default; el filtro de area ya cubre la
-        # funcion de "sacar ruido chico" sin destruir formas finas.
         kernel = np.ones((self.morph_kernel_size, self.morph_kernel_size), np.uint8)
         if self.apply_morph_open:
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -248,8 +226,6 @@ class ConeDetector(Node):
             )
             return None
 
-        # Log del contorno mas grande (independientemente de si pasa los filtros)
-        # para entender qué hay en la mascara antes de aplicar cualquier criterio.
         areas = [cv2.contourArea(c) for c in contours]
         biggest_idx = int(max(range(len(areas)), key=lambda i: areas[i]))
         bx, by, bw, bh = cv2.boundingRect(contours[biggest_idx])
@@ -295,7 +271,6 @@ class ConeDetector(Node):
 
         return best
 
-    # ------------------------------------------------------------------
     def estimate_distance_bearing(self, x, w, h):
         """
         Distancia por tamano aparente (no hay marcador ArUco en el cono):
@@ -333,7 +308,6 @@ class ConeDetector(Node):
 
         return cone_x, cone_y
 
-    # ------------------------------------------------------------------
     def register_candidate(self, x, y, timestamp):
         """
         Mantiene un buffer de las ultimas detecciones (con timestamp) y
@@ -362,11 +336,6 @@ class ConeDetector(Node):
         if spread > self.max_spread_m:
             return
 
-        # Limpiamos el buffer despues de confirmar: el detector necesita
-        # acumular detecciones frescas antes de re-publicar (~1-2s).
-        # Esto permite que si el cono es inaccesible desde el angulo actual,
-        # cone_mission_manager lo descarte y el detector lo re-evalue cuando
-        # el robot se mueva a una posicion con mejor acceso.
         self.recent_detections.clear()
         self.publish_confirmed(mean_x, mean_y)
 

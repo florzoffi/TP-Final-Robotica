@@ -23,11 +23,7 @@ class PathPlanner(Node):
             self.lidar_angle_offset = math.pi / 2.0
         else:
             self.lidar_angle_offset = 0.0
-
-        # Radio de seguridad alrededor de paredes onda para no acercarnos
-        # El robot no es un punto, entonces inflamos obstáculos.
-        # ESTE SEGURO LO TENEMOS QUE CAMBIAR MIL VECES
-        self.inflation_radius_m = 0.25
+        self.inflation_radius_m = 0.18
 
         self.map_received = False
         self.map_width = None
@@ -43,9 +39,7 @@ class PathPlanner(Node):
 
         self.last_plan_pose = None
         self.replan_distance_threshold = 0.30
-
-        self.dynamic_inflation_radius_m = 0.18
-
+        self.dynamic_inflation_radius_m = 0.12
         self.dynamic_obstacle_points = {}
         self.DYNAMIC_DECAY_SEC = 30.0
         self.consecutive_static_fallbacks = 0
@@ -96,7 +90,7 @@ class PathPlanner(Node):
             "/plan",
             10,
         )
-
+        
         self.replan_timer = self.create_timer(
             1.0,
             self.replan_timer_callback,
@@ -186,7 +180,6 @@ class PathPlanner(Node):
                 idx = row * width + col
                 occ = self.occupancy_data[idx]
 
-                # Ocupado o desconocido.
                 if occ > 50 or occ == -1:
                     occupied_cells.append((row, col))
 
@@ -259,7 +252,7 @@ class PathPlanner(Node):
         if self.current_pose is None or self.inflated_grid is None:
             return
 
-        MAX_DYNAMIC_RANGE = 1.0  # m — casi el rango completo del LIDAR del TB3
+        MAX_DYNAMIC_RANGE = 1.0 
         MAX_DYNAMIC_BEARING = math.radians(45)
         
         robot_x   = self.current_pose.pose.position.x
@@ -392,7 +385,7 @@ class PathPlanner(Node):
 
         path_cells = self.theta_star(start_cell, goal_cell)
 
-        self.inflated_grid = static_grid  # restaurar siempre
+        self.inflated_grid = static_grid
 
         if path_cells is None:
             self.consecutive_static_fallbacks += 1
@@ -472,43 +465,6 @@ class PathPlanner(Node):
             neighbors.append((new_cell, cost))
 
         return neighbors
-    
-    #A* -> capaz mas adelante lo cambio por theta* para que sea mas sueave
-    #lo dejo como evidencia
-    # def a_star(self, start, goal):
-    #     """
-    #     A* sobre la grilla inflada.
-    #     """
-    #     open_heap = []
-    #     heapq.heappush(open_heap, (0.0, start))
-
-    #     came_from = {}
-    #     g_score = {start: 0.0}
-
-    #     closed_set = set()
-
-    #     while open_heap:
-    #         _, current = heapq.heappop(open_heap)
-
-    #         if current in closed_set:
-    #             continue
-
-    #         if current == goal:
-    #             return self.reconstruct_path(came_from, current)
-
-    #         closed_set.add(current)
-
-    #         for neighbor, move_cost in self.get_neighbors(current):
-    #             tentative_g = g_score[current] + move_cost
-
-    #             if neighbor not in g_score or tentative_g < g_score[neighbor]:
-    #                 came_from[neighbor] = current
-    #                 g_score[neighbor] = tentative_g
-
-    #                 f_score = tentative_g + self.heuristic(neighbor, goal)
-    #                 heapq.heappush(open_heap, (f_score, neighbor))
-
-    #     return None
     
     def theta_star(self, start, goal):
         """
@@ -655,7 +611,6 @@ class PathPlanner(Node):
         path_msg.header.stamp = self.get_clock().now().to_msg()
         path_msg.header.frame_id = "map"
 
-        # Orientacion del goal final, para conservar el yaw deseado.
         final_orientation = self.goal_pose.pose.orientation
 
         for i, (row, col) in enumerate(path_cells):
