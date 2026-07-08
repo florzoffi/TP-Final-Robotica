@@ -33,7 +33,23 @@ class ArucoDetector(Node):
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(
             cv2.aruco.DICT_4X4_100
         )
-        self.aruco_params = cv2.aruco.DetectorParameters()
+
+        # OpenCV >=4.7 expone cv2.aruco.DetectorParameters() y la clase
+        # ArucoDetector; versiones mas viejas (paquetes de sistema tipo
+        # Ubuntu 20.04/22.04) solo tienen DetectorParameters_create() y la
+        # funcion libre cv2.aruco.detectMarkers(). Se detecta en runtime cual
+        # API hay disponible para que el mismo codigo corra en ambas.
+        self._use_new_aruco_api = hasattr(cv2.aruco, "ArucoDetector")
+
+        if self._use_new_aruco_api:
+            self.aruco_params = cv2.aruco.DetectorParameters()
+            self.detector = cv2.aruco.ArucoDetector(
+                self.aruco_dict,
+                self.aruco_params
+            )
+        else:
+            self.aruco_params = cv2.aruco.DetectorParameters_create()
+            self.detector = None
 
         #self.aruco_params.adaptiveThreshWinSizeMin = 3
         #self.aruco_params.adaptiveThreshWinSizeMax = 45
@@ -50,11 +66,6 @@ class ArucoDetector(Node):
         #self.aruco_params.cornerRefinementWinSize = 5
         #self.aruco_params.cornerRefinementMaxIterations = 30
         #self.aruco_params.cornerRefinementMinAccuracy = 0.01
-
-        self.detector = cv2.aruco.ArucoDetector(
-            self.aruco_dict,
-            self.aruco_params
-        )
 
         self.get_logger().info("Aruco detector node started")
         self.marker_size = 0.0889
@@ -94,7 +105,12 @@ class ArucoDetector(Node):
         #)
         #gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
-        corners, ids, rejected = self.detector.detectMarkers(gray)
+        if self._use_new_aruco_api:
+            corners, ids, rejected = self.detector.detectMarkers(gray)
+        else:
+            corners, ids, rejected = cv2.aruco.detectMarkers(
+                gray, self.aruco_dict, parameters=self.aruco_params
+            )
 
         obs_array = PoseArray()
         obs_array.header = msg.header
